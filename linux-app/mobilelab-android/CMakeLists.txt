@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
-find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network Test)
 
 set(MOBILELAB_ANDROID_SOURCES
  src/main.cpp src/MainWindow.cpp src/MainWindow.h
@@ -34,3 +34,11 @@ install(TARGETS mobilelab-android RUNTIME DESTINATION bin)
 
 enable_testing()
 add_test(NAME mobilelab-arm64-smoke COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/arm64-smoke.sh)
+
+qt_add_executable(resource-scheduler-test
+ tests/unit/ResourceSchedulerTest.cpp
+ src/core/ResourceScheduler.cpp src/core/ResourceScheduler.h
+)
+target_link_libraries(resource-scheduler-test PRIVATE Qt6::Core Qt6::Test)
+target_include_directories(resource-scheduler-test PRIVATE src/core)
+add_test(NAME resource-scheduler-test COMMAND resource-scheduler-test)

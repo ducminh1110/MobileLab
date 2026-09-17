@@ -1,0 +1,34 @@
+# Prioritized implementation slice from the 101-feature backlog.
+# This keeps the Android workbench production-oriented: foundation first,
+# expensive streaming/cloud/security items later.
+version: 1
+implemented_now:
+  - id: 1
+    name: device-tagging
+    surface: runtime-api-ui
+  - id: 2
+    name: device-health-score
+    surface: runtime-api-ui
+  - id: 6
+    name: device-search-filter
+    surface: qt-ui
+  - id: 29
+    name: priority-queue
+    surface: scheduler-api
+  - id: 30
+    name: retry-policy-metadata
+    surface: scheduler-api
+  - id: 32
+    name: scheduler-dry-run
+    surface: rest-api
+near_term:
+  - id: 44
+    name: openapi-spec
+  - id: 55
+    name: visual-test-matrix-builder
+  - id: 59
+    name: test-report-aggregator
+  - id: 65
+    name: centralized-log-aggregation
+  - id: 79
+    name: rbac

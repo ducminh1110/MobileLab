@@ -1,0 +1,24 @@
+# MobileLab Android hybrid matrix.
+# x86_64 is the preferred near-term emulator path because package/image
+# availability is broader. ARM64 remains enabled for native-host validation,
+# but is explicitly marked fundamental until compatibility gaps are resolved.
+version: 1
+strategy: hybrid-prefer-x86_64
+abis:
+  - name: x86_64
+    priority: preferred
+    acceleration: kvm-preferred
+    notes: "Primary focus for package coverage and emulator stability."
+  - name: arm64-v8a
+    priority: fundamental
+    acceleration: kvm-or-qemu-tcg
+    notes: "Keep in matrix for ARM-native parity; expect stricter package compatibility."
+scheduler:
+  max_parallel: 4
+  weights:
+    x86_64: 2
+    arm64-v8a: 4
+fallbacks:
+  missing_x86_64_image: warn-and-run-arm64
+  missing_arm64_image: warn-and-run-x86_64
+  no_kvm: degrade-to-userspace-and-reduce-parallelism

@@ -4,6 +4,7 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QRegularExpression>
+#include <QFile>
 
 AndroidEmulator::AndroidEmulator(){
     m_sdkRoot=qEnvironmentVariable("ANDROID_HOME");
@@ -32,6 +33,16 @@ bool AndroidEmulator::discover(){
             QFile f(ini); if(f.open(QIODevice::ReadOnly|QIODevice::Text)){
                 const QString text=QString::fromUtf8(f.readAll());
                 const auto m=QRegularExpression("path=(.+)").match(text); if(m.hasMatch()) a.path=m.captured(1).trimmed();
+                const auto abi=QRegularExpression("(?:abi.type|hw.cpu.arch)=(.+)").match(text); if(abi.hasMatch()) a.abi=abi.captured(1).trimmed();
+                const auto api=QRegularExpression("(?:image.sysdir.1|target)=(?:.*android-|android-)?([0-9]+)").match(text); if(api.hasMatch()) a.api=api.captured(1).trimmed();
+            }
+        }
+        if(!a.path.isEmpty()){
+            QFile config(QDir(a.path).filePath("config.ini"));
+            if(config.open(QIODevice::ReadOnly|QIODevice::Text)){
+                const QString text=QString::fromUtf8(config.readAll());
+                const auto abi=QRegularExpression("(?:abi.type|hw.cpu.arch)=(.+)").match(text); if(abi.hasMatch()) a.abi=abi.captured(1).trimmed();
+                const auto api=QRegularExpression("(?:image.sysdir.1|target)=(?:.*android-|android-)?([0-9]+)").match(text); if(api.hasMatch()) a.api=api.captured(1).trimmed();
             }
         }
         m_avds.push_back(a);

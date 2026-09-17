@@ -1,0 +1,16 @@
+version: 1
+backend: android-hybrid
+status: experimental
+execution:
+  preferred_abi: x86_64
+  secondary_abi: arm64-v8a
+  container_runtime: waydroid
+  emulator_runtime: google-android-emulator
+compatibility_notes:
+  x86_64: "Temporarily prioritized because Android SDK images and packages are easier to source."
+  arm64-v8a: "Fundamental path only; package/image availability and translation behavior remain constrained."
+features:
+  vscode_ide: true
+  rest_api: true
+  matrix_scheduler: true
+  abi_stability_annotations: true

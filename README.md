@@ -112,7 +112,7 @@ The orchestration layer is responsible for coordinating environments, scheduling
 | MCP integration                  | 🟢 Active         | Programmatic access for compatible AI tooling     |
 | Visual regression infrastructure | 🟢 Active         | Screenshot-based validation                       |
 | iOS virtualization               | 🟡 Experimental   | API and implementation may change                 |
-| Android execution                | 🟡 In development | Internal development and testing                  |
+| Android execution                | 🟡 In development | Hybrid x86_64 + ARM64 Linux workbench under active development |
 | Unified iOS / Android model      | 🟡 In development | Cross-platform orchestration                      |
 | Distributed execution            | 🔵 Planned        | Multi-machine / multi-node execution              |
 
@@ -120,7 +120,7 @@ The orchestration layer is responsible for coordinating environments, scheduling
 
 Android support is currently **not a public stable feature**.
 
-The Android implementation is being developed and tested as part of the broader cross-platform architecture. Interfaces, execution backends, and configuration formats may change substantially before a public release.
+The Android implementation is being developed as a Linux hybrid workbench that can expose x86_64 and ARM64 targets at the same time. x86_64 is the current near-term focus because emulator images and packages are more broadly available; ARM64 remains fundamental/experimental while package availability and compatibility issues are resolved. Interfaces, execution backends, and configuration formats may change substantially before a public release.
 
 ---
 
