@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <title>MobileLab</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preload" href="assets/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/fonts.css">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/chrome.css">
+  <link rel="stylesheet" href="assets/css/navigator.css">
+  <link rel="stylesheet" href="assets/css/editor.css">
+  <link rel="stylesheet" href="assets/css/report.css">
+  <link rel="stylesheet" href="assets/css/inspector.css">
+  <link rel="stylesheet" href="assets/css/debug.css">
+  <link rel="stylesheet" href="assets/css/overlay.css">
+  <link rel="stylesheet" href="assets/css/narrow.css">
+  <script type="module" src="assets/js/main.js"></script>
+</head>
+<body>
+  <div id="app" class="app" data-layout="wide">
+    <header id="toolbar" class="toolbar" role="banner"></header>
+    <div class="workspace">
+      <aside id="navigator" class="navigator" aria-label="Navigator">
+        <div id="nav-tabs" class="nav-tabs" role="tablist" aria-label="Navigators"></div>
+        <div id="nav-body" class="nav-body"></div>
+        <div id="nav-filter" class="nav-filter"></div>
+      </aside>
+      <div id="div-nav" class="divider divider-v" role="separator" aria-orientation="vertical" aria-label="Resize navigator" tabindex="0"></div>
+      <main id="center" class="center">
+        <div id="jumpbar" class="jumpbar"></div>
+        <div id="editor" class="editor" tabindex="-1"></div>
+        <div id="div-debug" class="divider divider-h" role="separator" aria-orientation="horizontal" aria-label="Resize debug area" tabindex="0"></div>
+        <section id="debug" class="debug" aria-label="Debug area"></section>
+      </main>
+      <div id="div-insp" class="divider divider-v" role="separator" aria-orientation="vertical" aria-label="Resize inspector" tabindex="0"></div>
+      <aside id="inspector" class="inspector" aria-label="Inspector"></aside>
+    </div>
+    <nav id="bottom-tabs" class="bottom-tabs" aria-label="Navigators"></nav>
+    <div id="overlay" class="overlay"></div>
+    <div id="toasts" class="toasts" role="region" aria-label="Notifications" aria-live="polite"></div>
+    <div id="sprite" class="sprite" aria-hidden="true"></div>
+  </div>
+  <noscript>MobileLab needs JavaScript. The dashboard is a static web app served by the MobileLab backend.</noscript>
+</body>
+</html>

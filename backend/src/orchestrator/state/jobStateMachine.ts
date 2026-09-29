@@ -2,16 +2,20 @@ import { JobStatus } from "../../simulator/models/types";
 import { DomainError } from "../../utils/errors";
 
 const transitions: Record<JobStatus, JobStatus[]> = {
-  queued: ["scheduled", "failed"],
-  scheduled: ["running", "failed"],
-  running: ["completed", "retrying", "failed"],
-  retrying: ["queued", "failed"],
+  queued: ["running", "cancelled", "failed"],
+  running: ["completed", "retrying", "failed", "cancelled"],
+  retrying: ["queued", "cancelled", "failed"],
   completed: [],
-  failed: []
+  failed: [],
+  cancelled: []
 };
 
+export function canTransitionJob(from: JobStatus, to: JobStatus): boolean {
+  return transitions[from]?.includes(to) ?? false;
+}
+
 export function transitionJobState(from: JobStatus, to: JobStatus): JobStatus {
-  if (!transitions[from]?.includes(to)) {
+  if (!canTransitionJob(from, to)) {
     throw new DomainError(`Invalid job transition: ${from} -> ${to}`, 409);
   }
   return to;

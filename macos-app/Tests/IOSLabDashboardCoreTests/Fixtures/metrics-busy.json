@@ -1,0 +1,1 @@
+{"devices":1,"jobs":5,"queueDepth":0,"running":1,"jobsByStatus":{"completed":2,"failed":2,"running":1},"capacity":{"maxLoad":4,"load":1,"cpuCores":4,"memoryGb":15.7},"hostMemoryFreeGb":14.6,"artifactBytes":17448,"process":{"pid":9608,"uptimeSeconds":6,"rssBytes":124669952,"cpuPercent":2.5}}

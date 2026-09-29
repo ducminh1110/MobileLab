@@ -1,16 +1,18 @@
 import { FastifyInstance } from "fastify";
-import { metricsRegistry } from "../../metrics/prometheus";
-import { OrchestratorService } from "../../orchestrator/services/orchestratorService";
+import type { AppServices } from "../../app";
+import { cleanupSchema } from "../schemas/tests";
 
-export async function registerMetricsRoutes(app: FastifyInstance, orchestrator: OrchestratorService): Promise<void> {
+export function registerMetricsRoutes(app: FastifyInstance, { orchestrator, metrics, config }: AppServices): void {
   app.get("/metrics", async (_request, reply) => {
-    reply.header("content-type", metricsRegistry.contentType);
-    return metricsRegistry.metrics();
+    reply.header("content-type", metrics.registry.contentType);
+    return metrics.registry.metrics();
   });
 
-  app.get("/metrics/summary", async () => ({
-    devices: orchestrator.listDevices().length,
-    jobs: orchestrator.listJobs().length,
-    queueDepth: orchestrator.queueDepth()
-  }));
+  app.get("/metrics/summary", async () => orchestrator.stats());
+
+  /** Deletes finished jobs and their logs / result bundles older than `days` (default: IOSLAB_RETENTION_DAYS). */
+  app.post("/maintenance/cleanup", async (request) => {
+    const { days } = cleanupSchema.parse(request.body ?? {});
+    return orchestrator.cleanup(days ?? config.retentionDays);
+  });
 }

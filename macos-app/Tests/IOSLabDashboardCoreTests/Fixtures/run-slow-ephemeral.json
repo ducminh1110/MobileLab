@@ -1,0 +1,1 @@
+{"job":{"id":"a2a49bcf-9c41-439e-94c2-42a4dc5ee1d6","testTarget":"SlowOne","status":"queued","retries":0,"maxRetries":0,"attempts":0,"requiredRuntime":"com.apple.CoreSimulator.SimRuntime.iOS-17-5","autoProvision":true,"createdAt":"2026-09-29T16:22:45.580Z","updatedAt":"2026-09-29T16:22:45.580Z","waitingReason":"Creating a simulator for this job"},"scheduled":false}

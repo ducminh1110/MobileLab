@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="8" failures="2" skipped="0" time="0.203">
+  <testsuite name="LoginFailTests" tests="8" failures="2" skipped="0" time="0.203" timestamp="2026-09-29T16:22:42.341Z">
+    <testcase name="testValidCredentials" classname="LoginFailTestsTests.LoginTests" time="0.02"/>
+    <testcase name="testInvalidPassword" classname="LoginFailTestsTests.LoginTests" time="0.03">
+      <failure message="LoginTests.swift:42 XCTAssertEqual failed: (&quot;Welcome&quot;) is not equal to (&quot;Error&quot;)">LoginTests.swift:42 XCTAssertEqual failed: (&quot;Welcome&quot;) is not equal to (&quot;Error&quot;)</failure>
+    </testcase>
+    <testcase name="testEmptyUsername" classname="LoginFailTestsTests.LoginTests" time="0.029"/>
+    <testcase name="testAddToCart" classname="LoginFailTestsTests.CheckoutTests" time="0.043"/>
+    <testcase name="testApplyCoupon" classname="LoginFailTestsTests.CheckoutTests" time="0.008"/>
+    <testcase name="testPaymentDeclined" classname="LoginFailTestsTests.CheckoutTests" time="0.009">
+      <failure message="CheckoutTests.swift:46 XCTAssertEqual failed: (&quot;Welcome&quot;) is not equal to (&quot;Error&quot;)">CheckoutTests.swift:46 XCTAssertEqual failed: (&quot;Welcome&quot;) is not equal to (&quot;Error&quot;)</failure>
+    </testcase>
+    <testcase name="testToggleDarkMode" classname="LoginFailTestsTests.SettingsTests" time="0.034"/>
+    <testcase name="testLogout" classname="LoginFailTestsTests.SettingsTests" time="0.03"/>
+  </testsuite>
+</testsuites>
