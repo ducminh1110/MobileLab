@@ -119,6 +119,7 @@
 .lg-n { display: inline-block; min-width: 30px; text-align: right; padding: 0 3px; line-height: 15px; border-radius: 3px; font-variant-numeric: tabular-nums; }
 .ll:hover .lg-n { color: var(--text-secondary); }
 .lc { flex: 1 0 auto; padding-left: 10px; color: var(--text); }
+.ll.has-pill .lc { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ll.cur .lc { background: var(--line-current); }
 .ll.err .lc { background: var(--line-error); }
 .ll.sel .lc { background: color-mix(in srgb, var(--accent) 10%, transparent); }

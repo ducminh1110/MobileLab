@@ -79,3 +79,8 @@
 @media (prefers-reduced-motion: reduce) {
   .app[data-layout="narrow"][data-sheet="debug"] .debug, .app[data-layout="narrow"][data-sheet="inspector"] .inspector { animation: none; }
 }
+
+/* Phone width: the capsule must never overlap itself. Segments shrink and ellipsize; the DEMO tag moves to the Welcome banner. */
+.app[data-layout="narrow"] .cap-seg { min-width: 0; flex: 0 1 auto; }
+.app[data-layout="narrow"] .cap-status { min-width: 0; flex: 1 1 auto; }
+.app[data-layout="narrow"] .cap-status .tag { display: none; }
