@@ -45,7 +45,7 @@
   /* derived surfaces (not in the spec table; kept together so both appearances stay consistent) */
   --hover: light-dark(rgb(0 0 0 / 5%), rgb(255 255 255 / 7%));
   --pressed: light-dark(rgb(0 0 0 / 9%), rgb(255 255 255 / 12%));
-  --canvas: light-dark(#e9eaee, #17171b);
+  --canvas: light-dark(#f0f1f4, #17171b);
   --menu: light-dark(rgb(248 248 250 / 94%), rgb(52 52 57 / 94%));
   --menu-border: light-dark(rgb(0 0 0 / 12%), rgb(255 255 255 / 12%));
   --menu-shadow: light-dark(0 8px 28px rgb(0 0 0 / 22%), 0 8px 28px rgb(0 0 0 / 55%));
