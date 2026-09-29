@@ -263,19 +263,11 @@ final class URLSessionWebSocketConnection: WebSocketConnection, @unchecked Senda
     }
 
     func receive() async throws -> WebSocketMessage {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<WebSocketMessage, Error>) in
-            task.receive { result in
-                switch result {
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                case .success(let message):
-                    switch message {
-                    case .string(let text): continuation.resume(returning: .text(text))
-                    case .data(let data): continuation.resume(returning: .binary(data))
-                    @unknown default: continuation.resume(returning: .binary(Data()))
-                    }
-                }
-            }
+        // The async overload exists on macOS 12+ (the deployment target is 13) and in swift-corelibs-foundation.
+        switch try await task.receive() {
+        case .string(let text): return .text(text)
+        case .data(let data): return .binary(data)
+        @unknown default: return .binary(Data())
         }
     }
 
