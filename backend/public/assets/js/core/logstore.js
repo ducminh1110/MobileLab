@@ -39,6 +39,14 @@ export class LogModel {
   }
 
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+
+  /** Called with the current job record; reloads the text when the job moved on (finished or started another attempt). */
+  observe(job) {
+    if (!job) return;
+    const active = isActive(job);
+    if (this.seen && this.loaded && ((this.seen.active && !active) || this.seen.attempts !== job.attempts)) void this.load();
+    this.seen = { active, attempts: job.attempts };
+  }
   notify(kind, from = 0) { this.version += 1; for (const fn of this.listeners) fn(kind, from); }
 
   setLines(lines) {

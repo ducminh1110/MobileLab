@@ -43,7 +43,7 @@ export function treeHtml(rows, { nav, label }) {
 
 export function toggleRow(nav, key, open) {
   setExpanded(nav, key, open);
-  invalidate("nav");
+  invalidate(nav === "vars" ? "debug" : "nav");
 }
 
 // ---------------------------------------------------------------- keyboard

@@ -5,15 +5,15 @@
 import { api, ApiError, download } from "./api.js";
 import { notify, notifyError } from "./notify.js";
 import { state, prefs, setPref, select, invalidate, jobById, deviceById, isActive, historyGo, canGoBack, canGoForward } from "./state.js";
-import { activeJobs, currentScheme, effectiveDestinations, runPlan, schemeConfig, jobTitle, isBooted } from "./models.js";
+import { activeJobs, currentScheme, runPlan, schemeConfig } from "./models.js";
 import { requestRefresh, loadDevices, loadJobs, loadRuns, ensureCatalog, loadDoctor, resultsOf, ensureResults } from "./sync.js";
 import { copyText, plural } from "./util.js";
 
 /** UI modules register how to open sheets / focus regions, so this file stays free of DOM code. */
+export const regions = new Map();
 export const hooks = {
   sheet: (_name, _props) => {},
-  focusRegion: (_name) => {},
-  menu: (_spec) => {}
+  focusRegion: (name) => regions.get(name)?.()
 };
 
 function fail(error, prefix) {
@@ -185,6 +185,14 @@ export async function exportJUnit(id) {
   } catch (error) { fail(error, "Could not export JUnit"); }
 }
 
+export async function copyLog(id) {
+  try {
+    const res = await api.get(`/tests/${encodeURIComponent(id)}/output?tail=${8 * 1024 * 1024}`);
+    const ok = await copyText(res.text || "");
+    notify(ok ? `Copied the log (${(res.text || "").split("\n").length} lines${res.truncated ? ", tail only" : ""}).` : "Could not copy the log.", { kind: ok ? "success" : "error" });
+  } catch (error) { fail(error, "Could not copy the log"); }
+}
+
 export async function downloadArtifact(artifact) {
   if (artifact.isDirectory || !artifact.downloadUrl) {
     const ok = await copyText(artifact.path);
@@ -295,6 +303,11 @@ export async function copy(text, what = "Copied") {
 // ---------------------------------------------------------------- panels
 
 export function togglePanel(name, open) {
+  if (state.ui.narrow && name !== "navigator") {
+    state.ui.narrowSheet = open === false || state.ui.narrowSheet === name ? null : name;
+    invalidate("shell", "toolbar", "debug", "inspector");
+    return;
+  }
   const key = { navigator: "navOpen", inspector: "inspOpen", debug: "debugOpen" }[name];
   const next = open === undefined ? !prefs[key] : open;
   setPref(key, next);
@@ -309,16 +322,14 @@ export function showNavigator(tab) {
   invalidate("shell", "nav", "toolbar");
 }
 
-export function openJob(id, { tab, line, caseName } = {}) {
+export function openJob(id, { tab, line, caseName, query } = {}) {
   if (tab) setPref("reportTab", tab);
-  select("job", id, { reveal: line || caseName ? { jobId: id, line, caseName } : null });
+  select("job", id, { reveal: line || caseName || query ? { jobId: id, line, caseName, query } : null });
   const job = jobById(id);
   if (job && !isActive(job)) ensureResults(id);
 }
 
 // ---------------------------------------------------------------- command registry
-
-const isNarrow = () => state.ui.narrow;
 
 export const NAV_TABS = [
   { id: "devices", label: "Devices", icon: "iphone", key: "1" },
@@ -384,8 +395,3 @@ export function commandForEvent(event, typing) {
   return null;
 }
 
-export { isNarrow };
-export const bootedIds = () => state.devices.filter(isBooted).map((d) => d.id);
-export const describeActive = () => activeJobs().map(jobTitle);
-export const isJobActive = (id) => { const j = jobById(id); return !!j && isActive(j); };
-export const effective = effectiveDestinations;

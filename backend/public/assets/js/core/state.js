@@ -85,6 +85,8 @@ export const state = {
     consoleFilter: "",
     varsFilter: "",
     narrowScreen: "nav", // nav | editor (narrow layout only)
+    narrowSheet: null, // "inspector" | "debug" while open as a sheet (narrow layout only)
+    sheet: null,
     narrow: false,
     demoCatalogLoading: false
   }

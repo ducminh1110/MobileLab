@@ -388,13 +388,14 @@ export async function loadHistory(kind, id) {
   const param = kind === "job" ? "jobId" : kind === "device" ? "deviceId" : "runId";
   const entry = state.eventHistory && state.eventHistory.key === key ? state.eventHistory : null;
   state.eventHistory = { key, items: entry?.items || [], loading: true, error: "" };
+  invalidate("inspector", "debug");
   try {
     const res = await api.get(`/events?${param}=${encodeURIComponent(id)}&limit=200`);
     if (state.eventHistory && state.eventHistory.key === key) state.eventHistory = { key, items: (res.items || []).slice().reverse(), loading: false, error: "" };
   } catch (error) {
     if (state.eventHistory && state.eventHistory.key === key) state.eventHistory = { key, items: [], loading: false, error: error.message };
   }
-  invalidate("inspector");
+  invalidate("inspector", "debug");
 }
 
 export const isRunning = (job) => !isTerminal(job);
