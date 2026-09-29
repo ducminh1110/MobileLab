@@ -92,8 +92,8 @@ final class PresentationTests: XCTestCase {
     func testFindInEventsAndLog() throws {
         var state = try loadedState()
         for event in try Fixture.streamedEvents().filter({ !$0.isOutput }) { state.reduce(.event(event)) }
-        let events = FindEngine.search(query: "queued loginfail", scope: .events, state: state, log: nil, openJobID: nil, formatting: utcFormatting)
-        XCTAssertTrue(events.isEmpty, "the query is one literal string")
+        let scattered = FindEngine.search(query: "queued tests loginfail", scope: .events, state: state, log: nil, openJobID: nil, formatting: utcFormatting)
+        XCTAssertTrue(scattered.isEmpty, "the query is one literal string, not a set of words")
         let hits = FindEngine.search(query: "Queued LoginFailTests", scope: .events, state: state, log: nil, openJobID: nil, formatting: utcFormatting)
         XCTAssertEqual(hits.first?.matches.count, 1)
         XCTAssertTrue(hits.first?.matches.first?.text.hasSuffix("Queued LoginFailTests") ?? false)
@@ -175,7 +175,8 @@ final class PresentationTests: XCTestCase {
 
     func testInspectorForAJobInAMatrixRunLinksToTheRun() throws {
         let state = try loadedState()
-        let inRun = try XCTUnwrap(state.jobs.first { $0.runId != nil })
+        let matrix = try XCTUnwrap(state.runs.first { $0.name == "Matrix" })
+        let inRun = try XCTUnwrap(state.jobs.first { $0.runId == matrix.id })
         let row = Inspector.sections(for: .job(inRun.id), state: state, now: now, formatting: utcFormatting)[0].rows.first { $0.label == "Run" }
         XCTAssertEqual(row?.link, .run(inRun.runId!))
         XCTAssertEqual(row?.value, "Matrix")
@@ -228,7 +229,7 @@ final class PresentationTests: XCTestCase {
         XCTAssertTrue(Inspector.quickHelp(for: .job("gone"), state: state).contains("no longer known"))
         let busy = try XCTUnwrap(state.devices.first { $0.status == .busy })
         XCTAssertTrue(Inspector.quickHelp(for: .device(busy.id), state: state).contains("job is running"))
-        XCTAssertTrue(Inspector.quickHelp(for: .welcome, state: state).contains("Press Run"))
+        XCTAssertTrue(Inspector.quickHelp(for: .welcome, state: state).contains("press Run"))
         state.reduce(.devices(DevicesResponse(items: [])))
         XCTAssertTrue(Inspector.quickHelp(for: .welcome, state: state).contains("no simulators yet"))
     }
