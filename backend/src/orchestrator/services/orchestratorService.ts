@@ -10,7 +10,7 @@ import { WebhookNotifier } from "../../notify/webhook";
 import { CapacitySnapshot, COST_WEIGHTS, getCapacitySnapshot } from "../../scheduler/policies/capacityPolicy";
 import { backoffMs, describeRequirements, deviceMatchesJob, isTestCapable } from "../../scheduler/services/schedulerService";
 import { CommandResult } from "../../simulator/engine/commandRunner";
-import { CatalogDeviceType, CatalogRuntime } from "../../simulator/engine/simctlClient";
+import { CatalogDeviceType, CatalogRuntime, CatalogService } from "../../simulator/engine/simctlClient";
 import { SimulatorEngine } from "../../simulator/engine/simulatorEngine";
 import { ParsedTestRun, TestResultParser, toJUnitXml } from "../../simulator/engine/testResultParser";
 import { VMEngine } from "../../simulator/engine/vmEngine";
@@ -90,6 +90,7 @@ export class OrchestratorService {
   private readonly provisionFailures = new Map<string, number>();
   private readonly cancelRequested = new Set<string>();
   private closed = false;
+  private cpuSample = { at: Date.now(), usage: process.cpuUsage() };
 
   readonly vmEngine: VMEngine;
   readonly hub: EventHub;
@@ -272,8 +273,7 @@ export class OrchestratorService {
 
     if (type === "vm") return this.spawnVm(input);
 
-    const runtime = await this.engine.catalog.resolveRuntime(input.runtime);
-    const model = await this.engine.catalog.resolveDeviceType(input.modelId);
+    const { runtime, model } = await this.resolveTarget(input.runtime, input.modelId);
     const device = this.createSimulator({ name: input.name?.trim() || `${model.name} (${runtime.name})`, runtime, model, ephemeral: false });
 
     if (input.wait === false) return this.view(device);
@@ -571,40 +571,79 @@ export class OrchestratorService {
     return job;
   }
 
+  /**
+   * Resolves an optional runtime and device type into a combination the host can actually create: a new
+   * iPhone does not exist on an old iOS, so an unspecified runtime is chosen to fit the device type and
+   * an impossible pairing is a clear 400 instead of a failing `simctl create`.
+   */
+  private async resolveTarget(runtimeInput?: string, modelInput?: string): Promise<{ runtime: CatalogRuntime; model: CatalogDeviceType }> {
+    const catalog = this.engine.catalog;
+    const anyModel = modelInput ? await catalog.resolveDeviceType(modelInput) : undefined;
+    const runtime = await catalog.resolveRuntime(runtimeInput, anyModel);
+    const model = await catalog.resolveDeviceType(modelInput, runtime);
+    return { runtime, model };
+  }
+
   async enqueueTest(input: EnqueueTestInput): Promise<TestJob> {
-    const requiredRuntime = input.requiredRuntime ? (await this.engine.catalog.resolveRuntime(input.requiredRuntime)).identifier : undefined;
-    const requiredModelId = input.requiredModelId ? (await this.engine.catalog.resolveDeviceType(input.requiredModelId)).identifier : undefined;
+    let requiredRuntime: string | undefined;
+    let requiredModelId: string | undefined;
+    if (input.requiredRuntime && input.requiredModelId) {
+      const { runtime, model } = await this.resolveTarget(input.requiredRuntime, input.requiredModelId);
+      requiredRuntime = runtime.identifier;
+      requiredModelId = model.identifier;
+    } else if (input.requiredRuntime) {
+      requiredRuntime = (await this.engine.catalog.resolveRuntime(input.requiredRuntime)).identifier;
+    } else if (input.requiredModelId) {
+      requiredModelId = (await this.engine.catalog.resolveDeviceType(input.requiredModelId)).identifier;
+    }
     const job = this.createJob({ ...input, requiredRuntime, requiredModelId });
     this.pump();
     return this.jobs.get(job.id) ?? job;
   }
 
-  /** Creates one job per runtime × device-type combination, sharing a run. */
-  async createRun(input: CreateRunInput): Promise<{ run: TestRunView; jobs: TestJob[] }> {
+  /**
+   * Creates one job per runtime x device-type combination, sharing a run. Combinations that cannot exist
+   * (a device type the runtime does not support) are skipped and reported, not silently dropped.
+   */
+  async createRun(input: CreateRunInput): Promise<{ run: TestRunView; jobs: TestJob[]; skipped: Array<{ runtime: string; model: string; reason: string }> }> {
     const runtimes = input.runtimes?.length ? await Promise.all(input.runtimes.map((r) => this.engine.catalog.resolveRuntime(r))) : [undefined];
     const models = input.models?.length ? await Promise.all(input.models.map((m) => this.engine.catalog.resolveDeviceType(m))) : [undefined];
     const uniqueRuntimes = [...new Map(runtimes.map((r) => [r?.identifier ?? "", r])).values()];
     const uniqueModels = [...new Map(models.map((m) => [m?.identifier ?? "", m])).values()];
 
-    if (uniqueRuntimes.length * uniqueModels.length > MAX_MATRIX_JOBS) {
-      throw new DomainError(`That matrix would create ${uniqueRuntimes.length * uniqueModels.length} jobs; the limit is ${MAX_MATRIX_JOBS}.`, 400);
+    const combos: Array<{ runtime?: CatalogRuntime; model?: CatalogDeviceType }> = [];
+    const skipped: Array<{ runtime: string; model: string; reason: string }> = [];
+    for (const runtime of uniqueRuntimes) {
+      for (const model of uniqueModels) {
+        if (runtime && model && !CatalogService.supports(runtime, model)) {
+          skipped.push({ runtime: runtime.name, model: model.name, reason: `${model.name} is not available on ${runtime.name}` });
+        } else {
+          combos.push({ runtime, model });
+        }
+      }
+    }
+
+    if (combos.length === 0) {
+      throw new DomainError(`None of the requested combinations exist: ${skipped.map((s) => s.reason).join("; ")}`, 400);
+    }
+    if (combos.length > MAX_MATRIX_JOBS) {
+      throw new DomainError(`That matrix would create ${combos.length} jobs; the limit is ${MAX_MATRIX_JOBS}.`, 400);
     }
 
     const run: TestRun = { id: randomUUID(), name: input.name, scheme: input.testTarget, jobIds: [], maxParallel: input.maxParallel, createdAt: nowIso() };
     this.runs.set(run.id, run);
 
     const jobs: TestJob[] = [];
-    for (const runtime of uniqueRuntimes) {
-      for (const model of uniqueModels) {
-        const job = this.createJob({ ...input, runId: run.id, requiredRuntime: runtime?.identifier, requiredModelId: model?.identifier });
-        run.jobIds.push(job.id);
-        jobs.push(job);
-      }
+    for (const { runtime, model } of combos) {
+      const job = this.createJob({ ...input, runId: run.id, requiredRuntime: runtime?.identifier, requiredModelId: model?.identifier });
+      run.jobIds.push(job.id);
+      jobs.push(job);
     }
-    this.hub.emit({ source: "scheduler", type: "started", action: "create_run", message: `Run of ${run.scheme}: ${jobs.length} job${jobs.length === 1 ? "" : "s"}`, runId: run.id });
+    const note = skipped.length ? `, ${skipped.length} unavailable combination${skipped.length === 1 ? "" : "s"} skipped` : "";
+    this.hub.emit({ source: "scheduler", type: "started", action: "create_run", message: `Run of ${run.scheme}: ${jobs.length} job${jobs.length === 1 ? "" : "s"}${note}`, runId: run.id });
     this.persist();
     this.pump();
-    return { run: this.getRun(run.id)!, jobs: jobs.map((j) => this.jobs.get(j.id) ?? j) };
+    return { run: this.getRun(run.id)!, jobs: jobs.map((j) => this.jobs.get(j.id) ?? j), skipped };
   }
 
   listJobs(filter: JobFilter = {}): TestJob[] {
@@ -814,8 +853,7 @@ export class OrchestratorService {
 
   private async provisionFor(job: TestJob): Promise<void> {
     try {
-      const runtime = await this.engine.catalog.resolveRuntime(job.requiredRuntime);
-      const model = await this.engine.catalog.resolveDeviceType(job.requiredModelId);
+      const { runtime, model } = await this.resolveTarget(job.requiredRuntime, job.requiredModelId);
       const device = this.createSimulator({ name: `${model.name} (${runtime.name})`, runtime, model, ephemeral: true });
       this.provisionedFor.set(device.id, job.id);
     } catch (error) {
@@ -1079,6 +1117,16 @@ export class OrchestratorService {
     return { jobsRemoved: stale.length, artifactsRemoved: artifacts, bytesFreed: bytes, runsRemoved };
   }
 
+  /** CPU share of this backend process since the previous call (100 = one full core). */
+  private processCpuPercent(): number {
+    const now = Date.now();
+    const usage = process.cpuUsage();
+    const elapsedMs = now - this.cpuSample.at;
+    const usedMs = (usage.user - this.cpuSample.usage.user + (usage.system - this.cpuSample.usage.system)) / 1000;
+    if (elapsedMs >= 500) this.cpuSample = { at: now, usage };
+    return elapsedMs > 0 ? Math.round(Math.min(100 * os.cpus().length, (usedMs / elapsedMs) * 100) * 10) / 10 : 0;
+  }
+
   stats() {
     const jobs = [...this.jobs.values()];
     const byStatus: Record<string, number> = {};
@@ -1091,7 +1139,13 @@ export class OrchestratorService {
       jobsByStatus: byStatus,
       capacity: this.capacity(),
       hostMemoryFreeGb: Math.round((os.freemem() / 1024 ** 3) * 10) / 10,
-      artifactBytes: this.artifacts.totalBytes()
+      artifactBytes: this.artifacts.totalBytes(),
+      process: {
+        pid: process.pid,
+        uptimeSeconds: Math.round(process.uptime()),
+        rssBytes: process.memoryUsage().rss,
+        cpuPercent: this.processCpuPercent()
+      }
     };
   }
 }

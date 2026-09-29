@@ -17,6 +17,12 @@ export interface MockRunnerOptions {
   latencyMs?: number;
 }
 
+const LEGACY_DEVICE_TYPES = [
+  "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation",
+  "com.apple.CoreSimulator.SimDeviceType.iPhone-15",
+  "com.apple.CoreSimulator.SimDeviceType.iPad-10th-generation"
+];
+
 const RUNTIMES = [
   { identifier: "com.apple.CoreSimulator.SimRuntime.iOS-17-5", name: "iOS 17.5", version: "17.5", buildversion: "21F79" },
   { identifier: "com.apple.CoreSimulator.SimRuntime.iOS-18-0", name: "iOS 18.0", version: "18.0", buildversion: "22A3351" },
@@ -97,7 +103,13 @@ export class MockCommandRunner implements CommandRunner {
         return result(
           0,
           JSON.stringify({
-            runtimes: RUNTIMES.map((r) => ({ ...r, platform: "iOS", isAvailable: true, isInternal: false }))
+            runtimes: RUNTIMES.map((r) => ({
+              ...r,
+              platform: "iOS",
+              isAvailable: true,
+              isInternal: false,
+              supportedDeviceTypes: DEVICE_TYPES.filter((d) => r.version !== "17.5" || LEGACY_DEVICE_TYPES.includes(d.identifier)).map(({ identifier, name, productFamily }) => ({ identifier, name, productFamily }))
+            }))
           })
         );
       }
@@ -120,7 +132,11 @@ export class MockCommandRunner implements CommandRunner {
     if (sub === "create") {
       const [name, deviceType, runtime] = rest;
       if (!DEVICE_TYPES.some((d) => d.identifier === deviceType)) return result(1, "", `Invalid device type: ${deviceType}\n`);
-      if (!RUNTIMES.some((r) => r.identifier === runtime)) return result(1, "", `Invalid runtime: ${runtime}\n`);
+      const rt = RUNTIMES.find((r) => r.identifier === runtime);
+      if (!rt) return result(1, "", `Invalid runtime: ${runtime}\n`);
+      if (rt.version === "17.5" && !LEGACY_DEVICE_TYPES.includes(deviceType)) {
+        return result(1, "", `Unable to create a device for device type: ${deviceType} and runtime: ${runtime}. Incompatible device\n`);
+      }
       await abortableSleep(this.latency, options.signal);
       const udid = randomUUID().toUpperCase();
       this.sims.set(udid, { udid, name, runtime, deviceType, state: "Shutdown" });

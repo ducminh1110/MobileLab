@@ -160,6 +160,9 @@ test("metrics reflect live state", async () => {
     assert.equal(summary.jobs, 1);
     assert.equal(summary.jobsByStatus.completed, 1);
     assert.equal(summary.queueDepth, 0);
+    assert.equal(summary.process.pid, process.pid);
+    assert.ok(summary.process.rssBytes > 1_000_000, "real process memory, not a made-up number");
+    assert.equal(typeof summary.process.cpuPercent, "number");
   });
 });
 

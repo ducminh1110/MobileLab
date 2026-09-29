@@ -43,6 +43,9 @@ export interface BackendCapabilities extends HostCapabilities {
   modeReason: AppConfig["mockReason"];
   vm: { enabled: boolean; simulated: true; canRunTests: false };
   auth: { required: boolean };
+  /** Where xcodebuild runs when a job does not name a project. */
+  workspaceRoot: string;
+  dataDir: string;
   capacity: CapacitySnapshot;
 }
 
@@ -55,6 +58,8 @@ export async function getBackendCapabilities(config: AppConfig, capacity: Capaci
     modeReason: config.mockReason,
     vm: { enabled: config.experimentalVm, simulated: true, canRunTests: false },
     auth: { required: !!config.apiToken },
+    workspaceRoot: config.workspaceRoot,
+    dataDir: config.dataDir,
     capacity
   };
 }

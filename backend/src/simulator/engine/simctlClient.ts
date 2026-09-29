@@ -7,6 +7,8 @@ export interface CatalogRuntime {
   identifier: string;
   name: string;
   version: string;
+  /** Device type identifiers this runtime can host. Absent when simctl does not say. */
+  supportedDeviceTypes?: string[];
 }
 
 export interface CatalogDeviceType {
@@ -87,11 +89,23 @@ export class SimctlClient {
   async runtimes(): Promise<CatalogRuntime[]> {
     const result = ensureSuccess("simctl list runtimes", await this.simctl(["list", "runtimes", "--json"], 30_000));
     const parsed = JSON.parse(result.stdout) as {
-      runtimes: Array<{ identifier: string; name: string; version: string; platform?: string; isAvailable?: boolean }>;
+      runtimes: Array<{
+        identifier: string;
+        name: string;
+        version: string;
+        platform?: string;
+        isAvailable?: boolean;
+        supportedDeviceTypes?: Array<{ identifier: string }>;
+      }>;
     };
     return parsed.runtimes
       .filter((r) => r.isAvailable !== false && (r.platform ? r.platform === "iOS" : r.identifier.includes(".iOS-")))
-      .map((r) => ({ identifier: r.identifier, name: r.name, version: r.version }))
+      .map((r) => ({
+        identifier: r.identifier,
+        name: r.name,
+        version: r.version,
+        supportedDeviceTypes: r.supportedDeviceTypes?.map((d) => d.identifier)
+      }))
       .sort((a, b) => compareVersions(b.version, a.version));
   }
 
@@ -137,12 +151,25 @@ export class CatalogService {
     return value;
   }
 
-  async resolveRuntime(input?: string): Promise<CatalogRuntime> {
+  /** Whether `runtime` can host `model`. Unknown compatibility is treated as compatible. */
+  static supports(runtime: CatalogRuntime, model: CatalogDeviceType): boolean {
+    return !runtime.supportedDeviceTypes?.length || runtime.supportedDeviceTypes.includes(model.identifier);
+  }
+
+  /**
+   * Resolves a runtime. With no input it picks the newest one; when `model` is given it picks the newest
+   * runtime that can actually host that device type (a new iPhone does not exist on an old iOS).
+   */
+  async resolveRuntime(input?: string, model?: CatalogDeviceType): Promise<CatalogRuntime> {
     const { runtimes } = await this.get();
     if (runtimes.length === 0) {
       throw new DomainError("No iOS simulator runtimes are installed. Install one in Xcode > Settings > Components.", 409);
     }
-    if (!input) return runtimes[0];
+    if (!input) {
+      const compatible = model ? runtimes.filter((r) => CatalogService.supports(r, model)) : runtimes;
+      if (compatible.length === 0) throw new DomainError(`No installed runtime supports ${model!.name}.`, 409);
+      return compatible[0];
+    }
 
     const wanted = input.trim().toLowerCase();
     const digits = wanted.replace(/^ios[\s-]*/, "").replace(/-/g, ".");
@@ -158,26 +185,36 @@ export class CatalogService {
     return found;
   }
 
-  async resolveDeviceType(input?: string): Promise<CatalogDeviceType> {
+  /**
+   * Resolves a device type. When `runtime` is given the choice is limited to what that runtime supports:
+   * asking for something it cannot host is a 400 that says so, and the default is the newest plain iPhone
+   * it does support.
+   */
+  async resolveDeviceType(input?: string, runtime?: CatalogRuntime): Promise<CatalogDeviceType> {
     const { deviceTypes } = await this.get();
     if (deviceTypes.length === 0) throw new DomainError("No iPhone/iPad device types are available on this host.", 409);
+
+    const pool = runtime?.supportedDeviceTypes?.length ? deviceTypes.filter((d) => runtime.supportedDeviceTypes!.includes(d.identifier)) : deviceTypes;
+    if (pool.length === 0) throw new DomainError(`${runtime!.name} does not list any iPhone or iPad device types.`, 409);
+
     if (!input) {
       // simctl lists device types oldest first, so search from the end for the newest plain iPhone.
-      const newestFirst = [...deviceTypes].reverse();
-      return (
-        newestFirst.find((d) => /^iPhone \d+$/.test(d.name)) ??
-        newestFirst.find((d) => d.family === "iPhone") ??
-        deviceTypes[0]
-      );
+      const newestFirst = [...pool].reverse();
+      return newestFirst.find((d) => /^iPhone \d+$/.test(d.name)) ?? newestFirst.find((d) => d.family === "iPhone") ?? pool[0];
     }
+
     const wanted = input.trim().toLowerCase();
-    const found =
-      deviceTypes.find((d) => d.identifier.toLowerCase() === wanted) ??
-      deviceTypes.find((d) => d.name.toLowerCase() === wanted) ??
-      deviceTypes.find((d) => d.identifier.toLowerCase().endsWith(`.${wanted.replace(/\s+/g, "-")}`));
-    if (!found) {
-      throw new DomainError(`Unknown device type "${input}". Available: ${deviceTypes.map((d) => d.name).join(", ")}`, 400);
+    const match = (list: CatalogDeviceType[]) =>
+      list.find((d) => d.identifier.toLowerCase() === wanted) ??
+      list.find((d) => d.name.toLowerCase() === wanted) ??
+      list.find((d) => d.identifier.toLowerCase().endsWith(`.${wanted.replace(/\s+/g, "-")}`));
+
+    const found = match(pool);
+    if (found) return found;
+    const elsewhere = match(deviceTypes);
+    if (elsewhere && runtime) {
+      throw new DomainError(`${elsewhere.name} is not available on ${runtime.name}. Available there: ${pool.map((d) => d.name).join(", ")}`, 400);
     }
-    return found;
+    throw new DomainError(`Unknown device type "${input}". Available: ${deviceTypes.map((d) => d.name).join(", ")}`, 400);
   }
 }

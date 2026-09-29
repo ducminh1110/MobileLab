@@ -218,15 +218,39 @@ test("a run with a failing scheme reports failed; cancelling a run cancels what 
   });
 });
 
-test("a 3x4 matrix is accepted; oversized lists are rejected", async () => {
+test("a matrix skips combinations that cannot exist and says so", async () => {
   await withApp(async ({ app }) => {
-    const ok = await app.inject({ method: "POST", url: "/runs", payload: { scheme: "X", runtimes: ["18.2", "18.0", "17.5"], models: ["iPhone SE (3rd generation)", "iPhone 15", "iPhone 16 Pro", "iPad (10th generation)"] } });
-    assert.equal(ok.statusCode, 202);
-    assert.equal(ok.json().jobs.length, 12);
+    const res = await app.inject({ method: "POST", url: "/runs", payload: { scheme: "X", runtimes: ["18.2", "18.0", "17.5"], models: ["iPhone SE (3rd generation)", "iPhone 15", "iPhone 16 Pro", "iPad (10th generation)"] } });
+    assert.equal(res.statusCode, 202);
+    const body = res.json();
+    assert.equal(body.jobs.length, 11, "12 combinations minus the one that does not exist");
+    assert.deepEqual(body.skipped, [{ runtime: "iOS 17.5", model: "iPhone 16 Pro", reason: "iPhone 16 Pro is not available on iOS 17.5" }]);
+
+    const impossible = await app.inject({ method: "POST", url: "/runs", payload: { scheme: "X", runtimes: ["17.5"], models: ["iPhone 16 Pro"] } });
+    assert.equal(impossible.statusCode, 400);
+    assert.match(impossible.json().message, /None of the requested combinations exist/);
 
     const tooMany = await app.inject({ method: "POST", url: "/runs", payload: { scheme: "X", runtimes: Array.from({ length: 17 }, (_, i) => `1${i}.0`) } });
     assert.equal(tooMany.statusCode, 400);
   });
+});
+
+test("device types are checked against the runtime, and defaults fit it", async () => {
+  await withApp(async ({ app, services }) => {
+    const bad = await app.inject({ method: "POST", url: "/devices/spawn", payload: { runtime: "17.5", modelId: "iPhone 16 Pro" } });
+    assert.equal(bad.statusCode, 400);
+    assert.match(bad.json().message, /iPhone 16 Pro is not available on iOS 17\.5\. Available there: /);
+
+    const fitted = await services.orchestrator.spawnDevice({ modelId: "iPhone 16 Pro" });
+    assert.equal(fitted.runtimeName, "iOS 18.2", "an unspecified runtime is chosen so the device type exists on it");
+
+    const old = await services.orchestrator.spawnDevice({ runtime: "17.5" });
+    assert.equal(old.modelName, "iPhone 15", "the default device type is the newest one that iOS 17.5 supports");
+
+    const job = await services.orchestrator.enqueueTest({ testTarget: "DemoApp", requiredModelId: "iPhone 16 Pro", autoProvision: false });
+    assert.equal(job.requiredRuntime, undefined);
+    await assert.rejects(services.orchestrator.enqueueTest({ testTarget: "DemoApp", requiredRuntime: "17.5", requiredModelId: "iPhone 16 Pro" }), /not available on iOS 17\.5/);
+  }, {}, { IOSLAB_MAX_LOAD: "8" });
 });
 
 test("capacity: spawning past the limit is a 429, and a job waits for capacity instead of failing", async () => {

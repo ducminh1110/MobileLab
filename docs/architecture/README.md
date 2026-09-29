@@ -1,83 +1,73 @@
-# iOSLab v2 — Hybrid Virtualization Platform Architecture
+# Architecture
 
-This document details the software architecture design and data flows for **iOSLab v2**, which introduces full iOS Guest VM Virtualization alongside standard iOS Simulator orchestration on macOS Apple Silicon.
-
-## 1. High-Level Architectural Diagram
-
-```
-                     ┌────────────────────┐
-                     │   Test Orchestrator │
-                     └─────────┬───────────┘
-                               │
-                 ┌─────────────┴─────────────┐
-                 │       Device Pool Manager   │
-                 └──────┬───────────────┬──────┘
-                         │               │
-            ┌────────────▼───┐   ┌───────▼────────────┐
-            │ Simulator Adapter│   │   VM Adapter        │
-            │ (simctl backend) │   │ (Virtualization.fw) │
-            └──────────────────┘   └──────────┬───────────┘
-                                               │
-                                    ┌──────────▼──────────┐
-                                    │  Firmware Pipeline    │
-                                    │ (fetch/patch/restore) │
-                                    └───────────────────────┘
-
-  Dashboard (Web UI)  ──┐
-  REST API              ├──► Test Orchestrator
-  MCP Server             ┘
-```
-
----
-
-## 2. Subsystems & Components
-
-### 2.1 Unified Device Pool Manager
-The device pool manager provides a single polymorphic abstraction layer (`Device`) so the scheduler and orchestrator can treat iOS Simulators and real iOS Guest VMs transparently:
-- **Simulator Adapter:** Interfaces with `xcrun simctl` command runners.
-- **VM Adapter:** Interfaces with Apple's `Virtualization.framework` guest kernels and custom PCC research virtual machines.
-
-### 2.2 VM Virtualization Engine (`VMEngine`)
-An additive engine built specifically to spin up genuine guest iOS kernels.
-- **VM Configuration Manifest:** Declared dynamically or saved in plist structures containing hardware profiles (vCPUs, memory allocation, virtual disk size, display resolutions).
-- **Control Channel Socket:** Exposes touch input injection, text typing keypresses, clipboard sharing, and live viewport screenshots.
-
-### 2.3 Firmware Pipeline (`FirmwarePipeline`)
-A sequence of low-level phases scoping firmware images from raw Apple IPSW releases to automatable VM system states:
-1. `fw_prepare` — extraction and alignment of IPSW files.
-2. `fw_patch` — application of "boot-only" minimalist kernel patches to bypass secure boot restrictions without jailbreaking sandbox permissions.
-3. `restore` — flashing patched partition images into guest system drives.
-4. `cfw_install` — customized system-level workspace file pre-configurations.
-5. `boot` — physical launch of virtual machine and control socket establishment.
-
-### 2.4 Resource-Aware Cost Scheduler
-Guest virtual machines are far heavier than lightweight simulator wrappers. To prevent host system choking:
-- Simulators are assigned a cost weight of `1`.
-- Guest iOS VMs are assigned a cost weight of `4`.
-- The scheduler computes `getActiveLoad(devices)` dynamically, scheduling next queued tests only if `activeLoad + compatibleDeviceCost <= hostCapacity`.
-
-### 2.5 Model Context Protocol (MCP) Server
-An open standard integration of JSON-RPC tools exposing device control directly to modern LLM developer assistants:
-- `list_devices`: query simulators and VMs.
-- `spawn_device`: hot-provisioning.
-- `run_test`: test targets.
-- `get_screenshot` / `inject_input`: drive automated VM sessions.
-
----
-
-## 3. Core Data Flow: Spawning VM and Pipeline Boot
+MobileLab orchestrates iOS Simulator test runs: it keeps a pool of simulators, matches queued
+`xcodebuild test` jobs to them, streams what happens, and stores the results. This page describes what the
+code does today. The API is in [`../api.md`](../api.md) and the interface design in
+[`../design/xcode-interface.md`](../design/xcode-interface.md).
 
 ```
-[ Client ]          [ API Server ]     [ Orchestrator ]     [ VM Engine ]      [ Control Socket ]
-    │                    │                    │                    │                   │
-    ├─► Spawn VM (POST) ─┼───────────────────►│                    │                   │
-    │                    │                    ├─► Create Config ──►│                   │
-    │                    │                    │                    ├─► [fw_prepare]    │
-    │                    │                    │                    ├─► [fw_patch]      │
-    │                    │                    │                    ├─► [restore]       │
-    │                    │                    │                    ├─► [cfw_install]   │
-    │                    │                    │                    ├─► [boot]          │
-    │                    │                    │                    │                   │
-    │                    │                    │                    ├─► Connect ───────►│
-    │◄─ Device Spawned ──┼◄───────────────────┤◄───────────────────┤                   │
+  web dashboard   macOS app    CLI (ioslab)    MCP clients    CI / scripts
+         \            |            |               |              /
+          +-----------+------------+---------------+-------------+
+                                   |  REST, WebSocket / SSE, JSON-RPC
+                        +----------v-----------+
+                        |  Fastify API layer   |  auth, validation, errors
+                        +----------+-----------+
+                                   |
+                        +----------v-----------+      +------------------+
+                        |    Orchestrator      +------+  EventHub        |  lifecycle events + live output
+                        |  devices, jobs, runs |      +------------------+
+                        |  dispatcher (pump)   |      +------------------+
+                        +---+--------------+---+------+  StateStore      |  state.json, atomic writes
+                            |              |          +------------------+
+              +-------------v--+     +-----v-----------+
+              | SimulatorEngine|     |   VMEngine      |  experimental, simulated:
+              | simctl, xcode- |     | (never runs     |  models a VM lifecycle only
+              | build, catalog |     |  tests)         |
+              +-------+--------+     +-----------------+
+                      |
+              +-------v--------+
+              | CommandRunner  |  RealCommandRunner (spawn) or MockCommandRunner (demo mode)
+              +----------------+
 ```
+
+## The orchestrator
+
+* **Devices** live in a `PoolManager`. A simulator is created with `simctl create`, booted with `simctl boot`
+  plus `bootstatus`, and can be shut down or deleted. Every operation is idempotent and tracked, so two
+  calls for the same device cannot interleave.
+* **Jobs** are queued in memory and persisted. `pump()` is a synchronous, idempotent function called whenever
+  something might unblock work (job queued, device ready, job finished, capacity freed). For each queued job
+  in FIFO order it: honours the run's `maxParallel`; reuses a ready device that matches the requested
+  runtime and device type; otherwise waits for a booting one; otherwise, if `autoProvision` is on and
+  capacity allows, creates an *ephemeral* simulator for it. Ephemeral simulators are removed as soon as no
+  queued job can use them.
+* **Execution** runs `xcodebuild test` with a per-attempt result bundle and log file, feeds every output line
+  to the `TestResultParser` (XCTest and Swift Testing) and to the live event stream, and then settles the job:
+  `completed`, `failed`, `cancelled`, or `retrying` with exponential backoff (build errors are never retried).
+  Timeouts and cancellation kill the whole process group.
+* **Capacity** counts every booted device (simulator 1, VM 4) against `min(cores, RAM / 2 GB)`, or
+  `IOSLAB_MAX_LOAD`. Jobs that cannot get capacity wait with a visible `waitingReason` rather than failing.
+* **Persistence**: devices, jobs, runs and the artifact index are written to `state.json` (debounced,
+  atomic). On start the pool is reconciled with `simctl list`, jobs that were running are marked failed
+  ("backend restarted"), and leftover ephemeral simulators are removed.
+
+## Demo mode and the experimental VM
+
+Simulators only exist on macOS, so elsewhere the backend swaps the command runner for a stateful mock of
+`simctl` and `xcodebuild` (unknown runtime, booting twice, testing on a stopped device and so on all fail
+the way the real tools do). Everything is labelled demo mode. The VM engine models the lifecycle of a
+virtualised iOS guest (firmware stages, backups, input, fault-injection flags) so the API and interfaces can be
+developed against it; it starts nothing and its devices are `canRunTests: false`, so the scheduler never
+assigns work to them.
+
+## Interfaces
+
+* `backend/public/`: the web dashboard (static ES modules, no build step) served at `/`.
+* `macos-app/`: the native macOS app (SwiftUI); logic lives in the SwiftPM `IOSLabDashboardCore` target.
+* `cli/`: the `ioslab` command.
+* `linux-app/mobilelab-android/`: the Linux Android device lab (Qt 6) with its own core; it does not use the
+  Node backend.
+
+All of them follow the same Xcode-style layout and vocabulary, defined once in
+[`../design/xcode-interface.md`](../design/xcode-interface.md).

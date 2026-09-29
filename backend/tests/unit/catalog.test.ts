@@ -34,6 +34,17 @@ test("device type shorthand and default", async () => {
   await assert.rejects(catalog.resolveDeviceType("Nokia 3310"), /Unknown device type/);
 });
 
+test("compatibility: the runtime decides which device types exist", async () => {
+  const { catalog } = engine();
+  const old = await catalog.resolveRuntime("17.5");
+  assert.ok(old.supportedDeviceTypes && old.supportedDeviceTypes.length === 3);
+  assert.equal((await catalog.resolveDeviceType(undefined, old)).name, "iPhone 15");
+  await assert.rejects(catalog.resolveDeviceType("iPhone 16 Pro", old), /not available on iOS 17\.5/);
+  const pro = await catalog.resolveDeviceType("iPhone 16 Pro");
+  assert.equal((await catalog.resolveRuntime(undefined, pro)).version, "18.2", "no runtime given: newest one that supports it");
+  assert.equal((await catalog.resolveRuntime("17.5")).version, "17.5", "an explicit runtime is never overridden");
+});
+
 test("xcodebuild args: relative project resolves against the workspace root, flags are rejected", () => {
   const client = new XcodebuildClient(new MockCommandRunner(), "/work");
   const { args, cwd } = client.buildTestArgs({
