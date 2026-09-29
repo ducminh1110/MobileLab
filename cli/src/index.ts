@@ -1,86 +1,38 @@
 #!/usr/bin/env node
-import { Command } from "commander";
-import { ApiClient } from "./client/apiClient";
-import { bootDevice, shutdownDevice, spawnDevice } from "./commands/deviceCommands";
-import { runTest, showStatus, streamJobLogs } from "./commands/testCommands";
-import { vmNew, vmBoot, vmBackup, vmRestore, vmSwitch, vmList } from "./commands/vmCommands";
+import { main } from "./cli";
 
-const program = new Command();
-const client = new ApiClient();
+/**
+ * The only place the process exits. Everything else returns an exit code (or throws a CliError that
+ * `main` turns into one), which is what makes the CLI testable.
+ */
 
-program.name("ioslab").description("iOSLab CLI").version("0.1.0");
-
-program
-  .command("spawn")
-  .argument("<device>")
-  .option("--vm", "Spawn a virtualized real-iOS VM instead of a simulator")
-  .action((device, options) => spawnDevice(client, device, options));
-
-program.command("boot").argument("<deviceId>").action((deviceId) => bootDevice(client, deviceId));
-program.command("shutdown").argument("<deviceId>").action((deviceId) => shutdownDevice(client, deviceId));
-
-const vmCommand = program.command("vm").description("Manage virtualized real-iOS VM configurations and pipelines");
-
-vmCommand
-  .command("new")
-  .argument("<name>")
-  .option("--runtime <runtime>", "iOS version runtime")
-  .option("--cpu <cpu>", "Number of vCPUs")
-  .option("--memory <memory>", "RAM in GB")
-  .option("--disk <disk>", "Disk size in GB")
-  .action((name, options) => vmNew(client, name, options));
-
-vmCommand
-  .command("boot")
-  .argument("<id>")
-  .action((id) => vmBoot(client, id));
-
-vmCommand
-  .command("backup")
-  .argument("<id>")
-  .argument("<backupName>")
-  .action((id, backupName) => vmBackup(client, id, backupName));
-
-vmCommand
-  .command("restore")
-  .argument("<id>")
-  .argument("<backupName>")
-  .action((id, backupName) => vmRestore(client, id, backupName));
-
-vmCommand
-  .command("switch")
-  .argument("<id>")
-  .option("--cpu <cpu>", "Number of vCPUs")
-  .option("--memory <memory>", "RAM in GB")
-  .option("--disk <disk>", "Disk size in GB")
-  .action((id, options) => vmSwitch(client, id, options));
-
-vmCommand
-  .command("list")
-  .action(() => vmList(client));
-
-program
-  .command("doctor")
-  .description("Verify local Mac workspace, Hypervisor entitlements, Xcode SDKs, and device toolchains")
-  .action(() => {
-    console.log("Analyzing local developer environment...");
-    console.log("✔ Xcode Command Line Tools Found");
-    console.log("✔ Compatible Apple Silicon M-series Hardware discovered");
-    console.log("✔ Hypervisor entitlement permissions verified");
-    console.log("✔ Local vphone-cli firmware pipeline components detected");
-    console.log("\niOSLab workspace doctor: HEALTHY (Your Mac is fully optimized for real VM execution)");
+const interrupt = new AbortController();
+let signals = 0;
+for (const [name, code] of [["SIGINT", 130], ["SIGTERM", 143]] as const) {
+  process.on(name, () => {
+    signals += 1;
+    // A second signal means "now": don't wait for the backend to confirm the cancellation.
+    if (signals > 1) process.exit(code);
+    interrupt.abort(code);
   });
+}
 
-program
-  .command("test")
-  .command("run")
-  .argument("<target>")
-  .action((target) => runTest(client, target));
-
-program.command("status").action(() => showStatus(client));
-program.command("logs").argument("<jobId>").action((jobId) => streamJobLogs(client, jobId));
-
-program.parseAsync().catch((error) => {
-  console.error(error);
-  process.exit(1);
+// `ioslab logs job | head` closes the pipe early; that is not an error.
+process.stdout.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EPIPE") process.exit(0);
 });
+
+function flush(stream: NodeJS.WriteStream): Promise<void> {
+  return new Promise((resolve) => stream.write("", () => resolve()));
+}
+
+main(process.argv.slice(2), { interrupt: interrupt.signal }).then(
+  async (code) => {
+    await Promise.all([flush(process.stdout), flush(process.stderr)]);
+    process.exit(code);
+  },
+  (error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  }
+);

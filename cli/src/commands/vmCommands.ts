@@ -1,96 +1,115 @@
-import ora from "ora";
-import { ApiClient } from "../client/apiClient";
-import { out } from "../utils/output";
+import { CliContext } from "../context";
+import { UsageError } from "../errors";
+import { VmConfiguration } from "../client/types";
+import { oneLine, sanitize, shortId } from "../utils/format";
+import { withSpinner } from "../utils/progress";
+import { renderTable } from "../utils/table";
+import { describeDevice, vmNote } from "./deviceCommands";
+import { resolveDeviceId, withListHint } from "../utils/resolve";
 
-export async function vmNew(
-  client: ApiClient,
-  name: string,
-  options: { runtime?: string; cpu?: string; memory?: string; disk?: string }
-): Promise<void> {
-  const spinner = ora(`Creating VM "${name}"`).start();
-  try {
-    const runtime = options.runtime ?? "com.apple.CoreSimulator.SimRuntime.iOS-18-0";
-    const payload = {
-      name,
-      runtime,
-      cpu: options.cpu ? parseInt(options.cpu, 10) : 4,
-      memory: options.memory ? parseInt(options.memory, 10) : 6,
-      disk: options.disk ? parseInt(options.disk, 10) : 64,
-    };
-    const response = await client.post("/vms/spawn", payload);
-    spinner.succeed("VM created successfully");
-    out.json(response);
-  } catch (error) {
-    spinner.fail("VM creation failed");
-    out.error(String(error));
-  }
+const VM_HINT = 'Run "ioslab vm list" to see the available VMs.';
+
+export interface VmSizeOptions {
+  cpu?: number;
+  memory?: number;
+  disk?: number;
 }
 
-export async function vmBoot(client: ApiClient, id: string): Promise<void> {
-  const spinner = ora(`Booting VM "${id}"`).start();
-  try {
-    const response = await client.post("/devices/boot", { id, target: "booting" });
-    spinner.succeed("VM boot pipeline completed successfully");
-    out.json(response);
-  } catch (error) {
-    spinner.fail("VM boot failed");
-    out.error(String(error));
-  }
+export interface VmNewOptions extends VmSizeOptions {
+  runtime?: string;
 }
 
-export async function vmBackup(client: ApiClient, id: string, backupName: string): Promise<void> {
-  const spinner = ora(`Creating state backup "${backupName}" for VM "${id}"`).start();
-  try {
-    const response = await client.post(`/vms/${id}/backup`, { name: backupName });
-    spinner.succeed("VM state backup created successfully");
-    out.json(response);
-  } catch (error) {
-    spinner.fail("VM state backup failed");
-    out.error(String(error));
-  }
+function announce(ctx: CliContext, value: unknown, message: string): void {
+  if (ctx.config.json) ctx.out.json(value);
+  else ctx.out.line(`${ctx.out.c.green("✔")} ${message}`);
 }
 
-export async function vmRestore(client: ApiClient, id: string, backupName: string): Promise<void> {
-  const spinner = ora(`Restoring VM "${id}" to state backup "${backupName}"`).start();
-  try {
-    const response = await client.post(`/vms/${id}/restore`, { name: backupName });
-    spinner.succeed("VM state backup restored successfully");
-    out.json(response);
-  } catch (error) {
-    spinner.fail("VM state restore failed");
-    out.error(String(error));
-  }
+async function resolveVm(ctx: CliContext, ref: string): Promise<string> {
+  return resolveDeviceId(ctx.client, ref, { type: "vm" });
 }
 
-export async function vmSwitch(
-  client: ApiClient,
-  id: string,
-  options: { cpu?: string; memory?: string; disk?: string }
-): Promise<void> {
-  const spinner = ora(`Switching configuration for VM "${id}"`).start();
-  try {
-    const payload: Record<string, number> = {};
-    if (options.cpu) payload.cpu = parseInt(options.cpu, 10);
-    if (options.memory) payload.memory = parseInt(options.memory, 10);
-    if (options.disk) payload.disk = parseInt(options.disk, 10);
-
-    const response = await client.post(`/vms/${id}/switch`, payload);
-    spinner.succeed("VM configuration switched successfully");
-    out.json(response);
-  } catch (error) {
-    spinner.fail("VM config switch failed");
-    out.error(String(error));
-  }
+export async function vmNewCommand(ctx: CliContext, name: string, options: VmNewOptions): Promise<number> {
+  const device = await withSpinner(ctx, `Creating VM "${sanitize(name)}"`, () =>
+    ctx.client.spawnVm({ name, runtime: options.runtime, cpu: options.cpu, memory: options.memory, disk: options.disk })
+  );
+  vmNote(ctx);
+  announce(ctx, device, `Created VM ${describeDevice(device)}  ${ctx.out.dim(`id ${shortId(device.id)}`)}  ${ctx.out.deviceStatus(device.status)}`);
+  return 0;
 }
 
-export async function vmList(client: ApiClient): Promise<void> {
-  const spinner = ora("Fetching virtualized iOS VMs").start();
-  try {
-    const response = await client.get("/vms");
-    spinner.succeed("Fetched virtualized iOS VMs");
-    out.json(response);
-  } catch (error) {
-    spinner.fail("Failed to fetch VMs");
-    out.error(String(error));
+export async function vmBootCommand(ctx: CliContext, ref: string): Promise<number> {
+  const device = await withSpinner(ctx, `Booting VM ${sanitize(ref)}`, async () => {
+    const id = await resolveVm(ctx, ref);
+    try {
+      return await ctx.client.bootDevice(id);
+    } catch (error) {
+      throw withListHint(error, VM_HINT);
+    }
+  });
+  vmNote(ctx);
+  announce(ctx, device, `VM ${describeDevice(device)} is ${ctx.out.deviceStatus(device.status)}`);
+  return 0;
+}
+
+export async function vmBackupCommand(ctx: CliContext, ref: string, backupName: string): Promise<number> {
+  const id = await resolveVm(ctx, ref);
+  const vm = await ctx.client.vmBackup(id, backupName).catch((error) => {
+    throw withListHint(error, VM_HINT);
+  });
+  vmNote(ctx);
+  announce(ctx, vm, `Saved backup "${sanitize(backupName)}" of VM ${oneLine(vm.name)}  ${ctx.out.dim(`(${vm.backupList.length} backups)`)}`);
+  return 0;
+}
+
+export async function vmRestoreCommand(ctx: CliContext, ref: string, backupName: string): Promise<number> {
+  const id = await resolveVm(ctx, ref);
+  const vm = await ctx.client.vmRestore(id, backupName).catch((error) => {
+    throw withListHint(error, VM_HINT);
+  });
+  vmNote(ctx);
+  announce(ctx, vm, `Restored VM ${oneLine(vm.name)} to backup "${sanitize(backupName)}"`);
+  return 0;
+}
+
+export async function vmSwitchCommand(ctx: CliContext, ref: string, options: VmSizeOptions): Promise<number> {
+  if (options.cpu === undefined && options.memory === undefined && options.disk === undefined) {
+    throw new UsageError("Nothing to switch: give at least one of --cpu, --memory or --disk.");
   }
+  const id = await resolveVm(ctx, ref);
+  const vm = await ctx.client.vmSwitch(id, { cpu: options.cpu, memory: options.memory, disk: options.disk }).catch((error) => {
+    throw withListHint(error, VM_HINT);
+  });
+  vmNote(ctx);
+  announce(ctx, vm, `VM ${oneLine(vm.name)} now has ${vm.cpu} vCPU, ${vm.memory} GB RAM, ${vm.disk} GB disk`);
+  return 0;
+}
+
+export async function vmListCommand(ctx: CliContext): Promise<number> {
+  const { out } = ctx;
+  const listing = await ctx.client.listVms();
+  vmNote(ctx);
+  if (ctx.config.json) {
+    out.json(listing);
+    return 0;
+  }
+  if (listing.items.length === 0) {
+    out.line('No VMs. Create one with "ioslab vm new <name>".');
+    return 0;
+  }
+  out.lines(
+    renderTable<VmConfiguration>(
+      [
+        { header: "ID", value: (v) => shortId(v.id) },
+        { header: "NAME", value: (v) => v.name, flex: true },
+        { header: "STATUS", value: (v) => v.status, style: (t) => out.deviceStatus(t) },
+        { header: "CPU", value: (v) => String(v.cpu), align: "right" },
+        { header: "MEMORY", value: (v) => `${v.memory} GB`, align: "right" },
+        { header: "DISK", value: (v) => `${v.disk} GB`, align: "right" },
+        { header: "BACKUPS", value: (v) => v.backupList.join(", "), flex: true }
+      ],
+      listing.items,
+      { maxWidth: out.tableWidth, headerStyle: out.dim }
+    )
+  );
+  return 0;
 }
