@@ -440,13 +440,13 @@ public struct LogDocument: Equatable, Sendable {
     public var isEmpty: Bool { lines.isEmpty }
     public var count: Int { lines.count }
 
-    /// `"a\nb\n"` gives `["a", "b"]`; `"\nx\n"` gives `["", "x"]`. Handles `\r\n`.
+    /// `"a\nb\n"` gives `["a", "b"]`; `"\nx\n"` gives `["", "x"]`. Handles `\r\n` (which Swift treats as one
+    /// Character, so it has to be named as a separator) and a bare `\r`.
     public static func splitLines(_ text: String) -> [String] {
         if text.isEmpty { return [] }
-        var pieces = text.split(separator: "\n", omittingEmptySubsequences: false).map { piece -> String in
-            piece.hasSuffix("\r") ? String(piece.dropLast()) : String(piece)
-        }
-        if text.hasSuffix("\n"), pieces.last == "" { pieces.removeLast() }
+        var pieces = text.split(omittingEmptySubsequences: false, whereSeparator: { $0 == "\n" || $0 == "\r\n" || $0 == "\r" }).map(String.init)
+        // Text that ends with a separator leaves one empty piece after it, which is not a line.
+        if pieces.last == "" { pieces.removeLast() }
         return pieces
     }
 
