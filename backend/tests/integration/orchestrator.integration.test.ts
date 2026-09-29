@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { cleanup, makeApp, waitFor } from "../helpers";
 import { TestJob } from "../../src/simulator/models/types";
+import { CommandResult, CommandRunner, RunOptions } from "../../src/simulator/engine/commandRunner";
+import { MockCommandRunner } from "../../src/simulator/engine/mockCommandRunner";
 
 const RT_18 = "com.apple.CoreSimulator.SimRuntime.iOS-18-0";
 const RT_17 = "com.apple.CoreSimulator.SimRuntime.iOS-17-5";
@@ -397,4 +399,32 @@ test("rerun creates a fresh job with the same parameters", async () => {
     await assert.rejects(services.orchestrator.rerunJob(copy.id), /still/, "cannot rerun a job that has not finished");
     await finished(services.orchestrator, copy.id);
   });
+});
+
+test("a job is never given two simulators while its first one is still being resolved", async () => {
+  // On a real Mac the first `simctl list runtimes` takes about a second; a pump triggered meanwhile used
+  // to create a second simulator for the same queued job.
+  const inner = new MockCommandRunner();
+  const slowCatalog: CommandRunner = {
+    async run(command: string, args: string[], options?: RunOptions): Promise<CommandResult> {
+      if (command === "xcrun" && args[0] === "simctl" && args[1] === "list" && args[2] !== "devices") {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
+      return inner.run(command, args, options);
+    }
+  };
+  const ctx = await makeApp({}, { ephemeral: true, runner: slowCatalog });
+  try {
+    const spawned: string[] = [];
+    ctx.services.hub.subscribe((e) => e.action === "spawn_device" && e.type === "started" && spawned.push(e.message));
+    const job = await ctx.services.orchestrator.enqueueTest({ testTarget: "DemoApp" });
+    // Unrelated activity that pumps the dispatcher while the catalog is still loading.
+    await ctx.services.orchestrator.enqueueTest({ testTarget: "Other", autoProvision: false });
+    await ctx.services.orchestrator.syncDevices();
+    await finished(ctx.services.orchestrator, job.id);
+    assert.equal(spawned.length, 1, `expected one simulator, got: ${spawned.join(", ")}`);
+  } finally {
+    await ctx.close();
+    cleanup(ctx.dataDir);
+  }
 });

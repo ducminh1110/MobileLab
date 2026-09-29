@@ -26,42 +26,14 @@ fi
 DIST_DIR="$ROOT_DIR/dist"
 PROJECT_PATH="$ROOT_DIR/macos-app/IOSLabDashboard.xcodeproj"
 SCHEME_NAME="IOSLabDashboard"
-RUNTIME_DIR="$ROOT_DIR/dist/backend-runtime"
 mkdir -p "$DIST_DIR"
 
 log "Using root directory: $ROOT_DIR"
 log "IOSLAB_SIMULATOR_MOCK=$IOSLAB_SIMULATOR_MOCK"
 
-log "Installing backend dependencies"
-(
-  cd "$ROOT_DIR/backend"
-  npm ci
-  log "Building backend"
-  npm run build
-)
-
-log "Preparing embedded backend runtime"
-rm -rf "$RUNTIME_DIR"
-mkdir -p "$RUNTIME_DIR"
-cp -R "$ROOT_DIR/backend/dist" "$RUNTIME_DIR/dist"
-cp "$ROOT_DIR/backend/package.json" "$RUNTIME_DIR/package.json"
-cp "$ROOT_DIR/backend/package-lock.json" "$RUNTIME_DIR/package-lock.json"
-cp -R "$ROOT_DIR/backend/node_modules" "$RUNTIME_DIR/node_modules"
-cat > "$RUNTIME_DIR/start-backend.sh" <<'LAUNCH'
-#!/usr/bin/env bash
-set -euo pipefail
-cd "$(dirname "$0")"
-exec /usr/bin/env node dist/index.js
-LAUNCH
-chmod +x "$RUNTIME_DIR/start-backend.sh"
-
-log "Installing CLI dependencies"
-(
-  cd "$ROOT_DIR/cli"
-  npm ci
-  log "Building CLI"
-  npm run build
-)
+log "Packaging backend (with the web dashboard) and CLI"
+"$ROOT_DIR/scripts/package_runtime.sh" "$DIST_DIR"
+RUNTIME_DIR="$DIST_DIR/backend-runtime"
 
 log "Validating macOS/Xcode environment"
 if [[ "$(uname -s)" != "Darwin" ]]; then

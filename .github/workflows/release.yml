@@ -71,11 +71,18 @@ jobs:
           mkdir -p release-assets
 
       # ==========================================
-      # 4. BUILD NATIVE MACOS APP (UNSIGNED)
+      # 4. PACKAGE BACKEND (WITH WEB DASHBOARD) AND CLI
       # ==========================================
-      - name: Build and Archive Xcode Dashboard App (Unsigned)
+      - name: Package backend and CLI
         run: |
-          # Build and archive native macOS app bypassing Apple certificates (Developer bypass)
+          # Production dependencies only, plus backend/public (the web dashboard).
+          ./scripts/package_runtime.sh "$RUNNER_TEMP/packages"
+
+      # ==========================================
+      # 5. BUILD NATIVE MACOS APP (UNSIGNED) AND EMBED THE BACKEND
+      # ==========================================
+      - name: Build and Archive Dashboard App (Unsigned)
+        run: |
           xcodebuild archive \
             -project macos-app/IOSLabDashboard.xcodeproj \
             -scheme IOSLabDashboard \
@@ -86,40 +93,27 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ENTITLEMENTS=""
 
-      - name: Export and Package App Bundle (Unsigned)
+      - name: Embed backend and package the app bundle
         run: |
-          # Create temporary folder for un-signed app export
           mkdir -p $RUNNER_TEMP/export
-          cp -r $RUNNER_TEMP/IOSLabDashboard.xcarchive/Products/Applications/IOSLabDashboard.app $RUNNER_TEMP/export/
+          cp -R $RUNNER_TEMP/IOSLabDashboard.xcarchive/Products/Applications/IOSLabDashboard.app $RUNNER_TEMP/export/
+          APP=$RUNNER_TEMP/export/IOSLabDashboard.app
 
-          # Zip the final native App bundle directly into release-assets folder
+          # The app starts this runtime itself (BackendRuntime looks for backend-runtime/start-backend.sh).
+          mkdir -p "$APP/Contents/Resources/backend-runtime"
+          cp -R "$RUNNER_TEMP/packages/backend-runtime/." "$APP/Contents/Resources/backend-runtime/"
+
           cd $RUNNER_TEMP/export
-          zip -r $GITHUB_WORKSPACE/release-assets/IOSLabDashboard.app.zip IOSLabDashboard.app
+          zip -qr $GITHUB_WORKSPACE/release-assets/IOSLabDashboard.app.zip IOSLabDashboard.app
 
-      # ==========================================
-      # 5. COMPILE & BUNDLE BACKEND AND CLI
-      # ==========================================
-      - name: Install Dependencies and Compile Backend & CLI
+      - name: Zip backend and CLI
         run: |
-          # Build Backend Server
-          cd backend
-          npm install
-          npm run build
-          cd ..
-
-          # Build CLI binary packages
-          cd cli
-          npm install
-          npm run build
-          cd ..
-
-          # Package and zip CLI and backend release artifacts
-          cp -r backend release-assets/backend-dist
-          cp -r cli release-assets/cli-dist
-          cd release-assets
-          zip -r ioslab-backend.zip backend-dist
-          zip -r ioslab-cli.zip cli-dist
-          cd ..
+          # Asset and folder names are unchanged for existing consumers.
+          cd $RUNNER_TEMP/packages
+          mv backend-runtime backend-dist
+          mv cli-runtime cli-dist
+          zip -qr $GITHUB_WORKSPACE/release-assets/ioslab-backend.zip backend-dist
+          zip -qr $GITHUB_WORKSPACE/release-assets/ioslab-cli.zip cli-dist
 
       # ==========================================
       # 6. CREATE AND PUBLISH GITHUB RELEASE

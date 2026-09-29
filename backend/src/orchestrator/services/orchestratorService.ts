@@ -88,6 +88,8 @@ export class OrchestratorService {
   /** Ephemeral device -> the job that caused it to be created. */
   private readonly provisionedFor = new Map<string, string>();
   private readonly provisionFailures = new Map<string, number>();
+  /** Jobs whose simulator is being resolved/created right now (the device record does not exist yet). */
+  private readonly provisioning = new Set<string>();
   private readonly cancelRequested = new Set<string>();
   private closed = false;
   private cpuSample = { at: Date.now(), usage: process.cpuUsage() };
@@ -786,7 +788,8 @@ export class OrchestratorService {
 
     const devices = this.pool.list();
     const capacity = getCapacitySnapshot(devices, this.config.maxLoad);
-    let load = capacity.load;
+    // Simulators that are about to be created already reserve their capacity.
+    let load = capacity.load + this.provisioning.size * COST_WEIGHTS.simulator;
     const claimed = new Set<string>();
 
     const runningPerRun = new Map<string, number>();
@@ -821,6 +824,11 @@ export class OrchestratorService {
         continue;
       }
 
+      if (this.provisioning.has(job.id)) {
+        this.setWaiting(job, "Creating a simulator for this job");
+        continue;
+      }
+
       if (!job.autoProvision) {
         this.setWaiting(job, `No ready simulator matches ${describeRequirements(job)}. Start one, or allow auto-provisioning.`);
         continue;
@@ -834,6 +842,9 @@ export class OrchestratorService {
         continue;
       }
 
+      // Mark synchronously: provisionFor awaits the catalog, and a pump that runs meanwhile must not
+      // create a second simulator for the same job.
+      this.provisioning.add(job.id);
       void this.provisionFor(job);
       load += cost;
       this.setWaiting(job, "Creating a simulator for this job");
@@ -861,6 +872,8 @@ export class OrchestratorService {
         this.finalizeJob(job.id, "failed", { error: errorMessage(error) });
         this.pump();
       }
+    } finally {
+      this.provisioning.delete(job.id);
     }
   }
 
