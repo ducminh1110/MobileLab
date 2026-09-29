@@ -18,4 +18,8 @@ export class PoolManager {
   update(device: Device): void {
     this.devices.set(device.id, device);
   }
+
+  remove(id: string): boolean {
+    return this.devices.delete(id);
+  }
 }
