@@ -17,9 +17,10 @@
 .isec-disc { display: grid; place-items: center; width: 12px; color: var(--text-tertiary); }
 .isec-body { display: flex; flex-direction: column; padding: 0 12px 0 4px; }
 .irow { display: flex; align-items: flex-start; min-height: 22px; padding: 2px 0; font-size: 12px; line-height: 18px; }
-.il { flex: none; width: 92px; padding-right: 10px; text-align: right; color: var(--text-secondary); }
+.il { flex: none; width: 104px; padding-right: 10px; text-align: right; color: var(--text-secondary); }
 .iv { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
 .iv .link { font-size: 12px; }
+.ival-wrap { display: flex; align-items: flex-start; gap: 4px; min-width: 0; width: 100%; }
 .ival { font-family: "JetBrains Mono", monospace; font-size: 11px; line-height: 16px; overflow-wrap: anywhere; word-break: break-all; }
 .irow.mono .iv { font-family: "JetBrains Mono", monospace; font-size: 11px; line-height: 16px; }
 .state-line { display: inline-flex; align-items: center; gap: 6px; }

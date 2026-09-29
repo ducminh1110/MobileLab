@@ -2,20 +2,23 @@
 .navigator { display: flex; flex-direction: column; }
 
 .nav-tabs {
-  display: flex; align-items: center; justify-content: space-between; flex: none;
-  height: 44px; margin: 0; padding: 0 12px;
+  position: relative; display: flex; align-items: center; justify-content: space-between; flex: none;
+  height: 44px; margin: 0; padding: 0 14px;
+}
+.nav-tabs::before {
+  content: ""; position: absolute; left: 8px; right: 8px; top: 6px; bottom: 6px; border-radius: 16px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
 }
 .nav-tabs, .bottom-tabs {
   background-image: none;
 }
 .nt {
-  position: relative; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
   color: var(--text-secondary); flex: none;
 }
 .nt:hover:not(.selected) { background: var(--hover); color: var(--text); }
 .nt.selected { background: var(--accent); color: var(--accent-text); }
 .nt:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 2px; border-radius: 50%; }
-.nav-tabs { box-shadow: inset 0 -0.5px 0 var(--divider); }
 
 .nav-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 0 10px; position: relative; }
 .app[data-conn="offline"] .nav-body { opacity: 0.5; }
@@ -54,9 +57,9 @@
 .disc.none { visibility: hidden; }
 .disc:hover { color: var(--text-secondary); }
 .row-icon { display: grid; place-items: center; flex: none; }
-.row-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.row-secondary { color: var(--text-secondary); margin-left: 3px; font-weight: 400; }
-.row-trail { display: inline-flex; align-items: center; gap: 6px; flex: none; margin-left: 4px; }
+.row-label { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.row-secondary { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); margin-left: -2px; font-weight: 400; }
+.row-trail { display: inline-flex; align-items: center; gap: 6px; flex: none; margin-left: auto; padding-left: 4px; }
 .row-time { font-size: 11.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .glyph { display: inline-grid; place-items: center; }
 .glyph .ic { width: 16px; height: 16px; }
@@ -94,7 +97,7 @@
 .row.gauge { height: 38px; align-items: flex-start; }
 .row.gauge .row-icon, .row.gauge .row-label, .row.gauge .row-trail, .row.gauge .disc { margin-top: 0; }
 .row .spark {
-  position: absolute; left: 38px; right: 12px; bottom: 3px; width: auto; height: 9px;
+  position: absolute; left: 38px; bottom: 3px; width: calc(100% - 52px); height: 9px;
   fill: var(--accent); opacity: 0.85;
 }
 .row .round-btn { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; }

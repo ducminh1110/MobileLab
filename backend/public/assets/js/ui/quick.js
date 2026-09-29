@@ -46,7 +46,7 @@ function results(query) {
   for (const item of all) {
     if (item.disabled) continue;
     const m = fuzzy(query.trim(), item.title);
-    const s = m ? m.score : (fuzzy(query.trim(), `${item.title} ${item.sub}`)?.score ?? null);
+    const s = m ? m.score : item.sub.toLowerCase().includes(query.trim().toLowerCase()) ? 0.5 : null;
     if (s === null) continue;
     scored.push({ ...item, score: s + (item.kind === "Device" ? 2 : item.kind === "Command" ? 1 : 0), indices: m ? m.indices : [] });
   }

@@ -92,7 +92,7 @@ function variablesView() {
   for (const j of jobs) {
     const s = j.summary;
     const st = j.status === "completed" ? "passed" : j.status === "failed" ? "failed" : isActive(j) ? "running" : "skipped";
-    rows.push(varRow(`job:${j.id}`, 0, badge(st), jobTitle(j), `= ${jobStatus(j).label.toLowerCase()}${s ? `: ${s.passed}/${s.total} passed` : ""}`, { open: { kind: "job", id: j.id }, ctx: "job" }));
+    rows.push(varRow(`job:${j.id}`, 0, badge(st), jobTitle(j), `= ${jobStatus(j).label.toLowerCase()}${s ? ` (${s.passed} of ${s.total} tests passed)` : ""}`, { open: { kind: "job", id: j.id }, ctx: "job" }));
   }
   return { html: treeHtml(rows, { nav: "vars", label: "Variables" }), count: rows.length };
 }

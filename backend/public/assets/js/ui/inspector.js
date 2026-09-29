@@ -43,8 +43,8 @@ function deviceAttributes(d) {
       ${row("Kind", d.type === "vm" ? "Experimental VM (simulated)" : "Simulator")}
       ${row("Backend", d.backend)}${row("Auto-created", d.ephemeral ? "Yes, removed when no queued job needs it" : "No")}`)}
     ${section("d-location", "Location", html`
-      ${row("Simulator UDID", d.simulatorUdid ? html`<code class="ival">${d.simulatorUdid}</code>${copyButton(d.simulatorUdid, "the UDID")}` : "None yet")}
-      ${row("Device ID", html`<code class="ival">${d.id}</code>${copyButton(d.id, "the device ID")}`)}`)}
+      ${row("Simulator UDID", d.simulatorUdid ? html`<span class="ival-wrap"><code class="ival">${d.simulatorUdid}</code>${copyButton(d.simulatorUdid, "the UDID")}</span>` : "None yet")}
+      ${row("Device ID", html`<span class="ival-wrap"><code class="ival">${d.id}</code>${copyButton(d.id, "the device ID")}</span>`)}`)}
     ${section("d-resources", "Resources", html`
       ${row("Cost Units", String(d.type === "vm" ? 4 : 1))}
       ${row("Runs Tests", yesNo(d.canRunTests))}
@@ -61,7 +61,7 @@ function jobAttributes(j) {
   const run = j.runId ? runById(j.runId) : null;
   return html`
     ${section("j-identity", "Identity", html`
-      ${row("Job ID", html`<code class="ival">${j.id}</code>${copyButton(j.id, "the job ID")}`)}
+      ${row("Job ID", html`<span class="ival-wrap"><code class="ival">${j.id}</code>${copyButton(j.id, "the job ID")}</span>`)}
       ${row("Scheme", j.testTarget)}
       ${row("Status", html`<span class="state-line">${jobStatus(j).label}</span>`)}
       ${row("Run", run ? html`<button type="button" class="link" data-action="open-run" data-id="${run.id}">${runName(run)}</button>` : "")}`)}
@@ -83,7 +83,7 @@ function jobAttributes(j) {
 
 function runAttributes(r) {
   return html`
-    ${section("r-identity", "Identity", html`${row("Run ID", html`<code class="ival">${r.id}</code>${copyButton(r.id, "the run ID")}`)}${row("Name", runName(r))}${row("Scheme", r.scheme)}${row("Status", r.status)}`)}
+    ${section("r-identity", "Identity", html`${row("Run ID", html`<span class="ival-wrap"><code class="ival">${r.id}</code>${copyButton(r.id, "the run ID")}</span>`)}${row("Name", runName(r))}${row("Scheme", r.scheme)}${row("Status", r.status)}`)}
     ${section("r-jobs", "Jobs", html`${row("Jobs", String(r.jobIds.length))}${row("Breakdown", runCountsText(r))}${row("Max Parallel", r.maxParallel ? String(r.maxParallel) : "Unlimited")}${row("Created", fmtWhen(r.createdAt))}${r.finishedAt ? row("Finished", fmtWhen(r.finishedAt)) : ""}`)}`;
 }
 

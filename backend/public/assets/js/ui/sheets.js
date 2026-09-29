@@ -347,10 +347,12 @@ export function initSheets() {
     const cat = state.catalog;
     if (!sheet || !cat) return;
     if (el.dataset.arg === "runtime") {
-      const items = [...cat.runtimes].sort((a, b) => compareVersionsDesc(a.name, b.name)).map((r) => ({ label: r.name, checked: sheet.form.runtime === r.identifier, run: () => { sheet.form.runtime = r.identifier; invalidate("overlay"); } }));
+      const items = [...cat.runtimes].sort((a, b) => compareVersionsDesc(a.name, b.name)).map((r) => ({ label: r.name, checked: sheet.form.runtime === r.identifier, run: () => { sheet.form.runtime = r.identifier; const ok = new Set(r.supportedDeviceTypes || cat.deviceTypes.map((t) => t.identifier)); if (!ok.has(sheet.form.model)) sheet.form.model = (cat.deviceTypes.find((t) => ok.has(t.identifier) && t.family === "iPhone") || cat.deviceTypes.find((t) => ok.has(t.identifier)))?.identifier || ""; invalidate("overlay"); } }));
       openMenu({ anchor: el, items, label: "Runtime", minWidth: el.offsetWidth });
     } else {
-      const items = cat.deviceTypes.map((t) => ({ label: t.name || modelLabel(t.identifier), icon: /ipad/i.test(t.name) ? "ipad" : "iphone", checked: sheet.form.model === t.identifier, run: () => { sheet.form.model = t.identifier; invalidate("overlay"); } }));
+      const rt = cat.runtimes.find((r) => r.identifier === sheet.form.runtime);
+      const supported = new Set(rt?.supportedDeviceTypes || cat.deviceTypes.map((t) => t.identifier));
+      const items = cat.deviceTypes.filter((t) => supported.has(t.identifier)).map((t) => ({ label: t.name || modelLabel(t.identifier), icon: /ipad/i.test(t.name) ? "ipad" : "iphone", checked: sheet.form.model === t.identifier, run: () => { sheet.form.model = t.identifier; invalidate("overlay"); } }));
       openMenu({ anchor: el, items, label: "Device type", minWidth: el.offsetWidth });
     }
   });

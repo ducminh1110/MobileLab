@@ -25,7 +25,7 @@ export function rowHtml(row, tabStop) {
       tabindex="${tabStop ? 0 : -1}"${row.title ? html` title="${row.title}"` : ""}>
       <span class="disc${row.expandable ? "" : " none"}" ${row.expandable ? raw('data-action="row-toggle"') : ""}>${row.expandable ? icon(row.expanded ? "chevron.down" : "chevron.right", "ic-10") : ""}</span>
       ${row.icon ? html`<span class="row-icon">${row.icon}</span>` : ""}
-      <span class="row-label">${row.label}${row.secondary ? html` <span class="row-secondary">${row.secondary}</span>` : ""}</span>
+      <span class="row-label">${row.label}</span>${row.secondary ? html`<span class="row-secondary">${row.secondary}</span>` : ""}
       ${row.trailing ? html`<span class="row-trail">${row.trailing}</span>` : ""}
       ${row.hoverAction ? row.hoverAction : ""}
       ${row.extra ? row.extra : ""}

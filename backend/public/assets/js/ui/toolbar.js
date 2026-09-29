@@ -7,15 +7,13 @@ import { patch } from "../core/morph.js";
 import { state, prefs, onRender, invalidate } from "../core/state.js";
 import {
   activeJobs, bootedSimulators, capsuleStatus, currentScheme, destinationInfo, destinationLabel, destinationIcon, effectiveDestinations,
-  runPlan, schemeNames, modelLabel, runtimeLabel
+  runPlan, schemeNames, modelLabel, runtimeLabel, compareVersionsDesc
 } from "../core/models.js";
 import { ensureCatalog } from "../core/sync.js";
 import { chooseScheme, commandById, hooks, isEnabled, openJob, runScheme, setDestinations, showNavigator, stopAll, togglePanel } from "../core/actions.js";
 import { action } from "./dispatch.js";
 import { openMenu } from "./menu.js";
 import { elapsedSpan } from "./ticker.js";
-
-const MAX_ON_DEMAND = 24;
 
 function statusView() {
   const err = state.ui.runError;
@@ -150,18 +148,22 @@ function destinationMenuItems() {
     items.push({ label: d.name, icon: info.icon, sub: d.runtimeName || runtimeLabel(d.runtime), checked: selected.has(`dev:${d.id}`), keepOpen: true, run: toggle(`dev:${d.id}`) });
   }
 
-  items.push({ header: "Create on Demand" });
   const cat = state.catalog;
-  if (!cat) items.push({ label: state.catalogError ? `Catalog unavailable: ${state.catalogError}` : "Loading…", disabled: true });
-  else {
-    const list = [];
-    for (const rt of cat.runtimes || []) for (const ty of cat.deviceTypes || []) list.push({ rt, ty });
-    for (const { rt, ty } of list.slice(0, MAX_ON_DEMAND)) {
-      const key = `new:${rt.identifier}|${ty.identifier}`;
-      items.push({ label: `${ty.name || modelLabel(ty.identifier)}`, sub: rt.name, icon: /ipad/i.test(ty.name) ? "ipad" : "iphone", checked: selected.has(key), keepOpen: true, run: toggle(key) });
+  if (!cat) {
+    items.push({ header: "Create on Demand" });
+    items.push({ label: state.catalogError ? `Catalog unavailable: ${state.catalogError}` : "Loading…", disabled: true });
+  } else if (!(cat.runtimes || []).length || !(cat.deviceTypes || []).length) {
+    items.push({ header: "Create on Demand" });
+    items.push({ label: "The host reports no runtimes or device types", disabled: true });
+  } else {
+    for (const rt of [...cat.runtimes].sort((a, b) => compareVersionsDesc(a.name, b.name))) {
+      const supported = new Set(rt.supportedDeviceTypes || cat.deviceTypes.map((t) => t.identifier));
+      items.push({ header: `Create on Demand · ${rt.name}` });
+      for (const ty of cat.deviceTypes.filter((t) => supported.has(t.identifier))) {
+        const key = `new:${rt.identifier}|${ty.identifier}`;
+        items.push({ label: ty.name || modelLabel(ty.identifier), icon: /ipad/i.test(ty.name) ? "ipad" : "iphone", checked: selected.has(key), keepOpen: true, run: toggle(key) });
+      }
     }
-    if (list.length > MAX_ON_DEMAND) items.push({ label: `${list.length - MAX_ON_DEMAND} more in the create-simulator sheet`, disabled: true });
-    if (!list.length) items.push({ label: "The host reports no runtimes or device types", disabled: true });
   }
 
   const plan = runPlan();
