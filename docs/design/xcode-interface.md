@@ -305,3 +305,12 @@ capsule reads `Android Matrix > <target>`.
 4. Every pane shows real data and honest empty / error states; nothing is hard-coded.
 5. Keyboard: full tree navigation, shortcuts from section 11, visible focus, no keyboard traps.
 6. Narrow window (web: 390px and 900px) remains usable.
+
+## 14. Concept: Connect a Mac (planned)
+
+The Devices navigator gets a **Mac hosts** group, and the toolbar destination popup groups devices by host.
+A **Connect Mac...** sheet (entry points: Devices navigator footer `+`, destination popup, Welcome editor) takes
+`username@address` and either a password or an uploaded SSH private key, connects over SSH, installs the
+MobileLab remote server on the Mac by itself and sets up remote work, with a step list and live output in the
+console. It is not built yet: the full concept (flow, security requirements, architecture, API) is in
+[`remote-mac.md`](remote-mac.md).

@@ -543,6 +543,7 @@ They will be migrated progressively as the cross-platform architecture stabilize
 * [ ] Physical device integration
 * [ ] Cross-platform visual regression
 * [ ] Remote execution nodes
+* [ ] Connect a Mac from the web UI over SSH (auto-install the remote server, then run tests there): [concept](docs/design/remote-mac.md)
 * [ ] AI-generated mobile test flows
 
 > The roadmap describes project direction rather than guaranteed release timelines. Features and priorities may change as the architecture evolves.
