@@ -1,0 +1,171 @@
+/* Window anatomy: toolbar, three panes, dividers (spec section 1). Sizes live in custom properties that the
+   shell writes through the CSSOM (the CSP forbids inline style attributes). */
+
+.app {
+  --nav-w: 300px;
+  --insp-w: 300px;
+  --debug-h: 240px;
+  --toolbar-h: 52px;
+  --nav-col: var(--nav-w);
+  --nav-div: 1px;
+  --insp-col: var(--insp-w);
+  --insp-div: 1px;
+  --debug-row: var(--debug-h);
+  --debug-div: 1px;
+
+  position: relative;
+  display: grid;
+  grid-template-rows: var(--toolbar-h) minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  background: var(--window);
+  overflow: hidden;
+}
+.app[data-nav="closed"] { --nav-col: 0px; --nav-div: 0px; }
+.app[data-insp="closed"] { --insp-col: 0px; --insp-div: 0px; }
+.app[data-debug="closed"] { --debug-row: 0px; --debug-div: 0px; }
+
+.workspace {
+  display: grid;
+  grid-template-columns: var(--nav-col) var(--nav-div) minmax(0, 1fr) var(--insp-div) var(--insp-col);
+  min-height: 0;
+  min-width: 0;
+}
+.navigator { grid-column: 1; }
+#div-nav { grid-column: 2; }
+.center { grid-column: 3; }
+#div-insp { grid-column: 4; }
+.inspector { grid-column: 5; }
+.app[data-nav="closed"] .navigator, .app[data-nav="closed"] #div-nav,
+.app[data-insp="closed"] .inspector, .app[data-insp="closed"] #div-insp { visibility: hidden; }
+.app[data-debug="closed"] .debug, .app[data-debug="closed"] #div-debug { visibility: hidden; }
+
+.center {
+  display: grid;
+  grid-template-rows: 28px minmax(0, 1fr) var(--debug-div) var(--debug-row);
+  min-width: 0;
+  min-height: 0;
+  background: var(--editor);
+}
+.navigator, .inspector { min-width: 0; min-height: 0; overflow: hidden; background: var(--sidebar); }
+
+/* dividers: 1px line, 7px hit area */
+.divider { position: relative; background: var(--divider); z-index: 3; }
+.divider::after { content: ""; position: absolute; }
+.divider-v::after { top: 0; bottom: 0; left: -3px; right: -3px; cursor: col-resize; }
+.divider-h::after { left: 0; right: 0; top: -3px; bottom: -3px; cursor: row-resize; }
+.divider:hover, .divider.dragging, .divider:focus-visible { background: var(--accent); outline: none; }
+.app.dragging { user-select: none; }
+.app.dragging.drag-v { cursor: col-resize; }
+.app.dragging.drag-h { cursor: row-resize; }
+
+/* ---------------------------------------------------------------- toolbar */
+.toolbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--tb-left, auto) minmax(0, 1fr) minmax(0, 560px) minmax(0, 1fr);
+  align-items: center;
+  height: var(--toolbar-h);
+  background: var(--window);
+  border-bottom: 0.5px solid var(--divider);
+  z-index: 4;
+  min-width: 0;
+}
+.app[data-nav="open"] .toolbar {
+  --tb-left: calc(var(--nav-w) + 1px);
+  background: linear-gradient(to right, var(--sidebar) 0, var(--sidebar) var(--nav-w), var(--divider) var(--nav-w), var(--divider) calc(var(--nav-w) + 1px), var(--window) calc(var(--nav-w) + 1px));
+}
+
+.tb-left { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 14px 0 12px; min-width: 0; }
+.app[data-nav="closed"] .tb-left { justify-content: flex-start; gap: 6px; padding: 0 10px 0 12px; }
+.tb-run { display: flex; align-items: center; gap: 2px; }
+.tb-btn { width: 30px; height: 28px; border-radius: 8px; color: var(--text); }
+.tb-btn .ic { width: 18px; height: 18px; }
+.tb-btn.tb-nav { color: var(--text-secondary); }
+.tb-btn:disabled { color: var(--text-tertiary); opacity: 0.6; }
+.tb-btn.tb-stop:not(:disabled) { color: var(--text); }
+.tb-btn.tb-play { color: var(--text); }
+.tb-btn.tb-play .ic { width: 17px; height: 17px; }
+
+.tb-title { display: flex; align-items: center; gap: 8px; padding: 0 12px; min-width: 0; }
+.app-menu {
+  display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 4px; margin-left: -4px;
+  border-radius: 8px; font-size: 13px; line-height: 16px; font-weight: 700; color: var(--text); min-width: 0;
+}
+.app-menu:hover, .app-menu[aria-expanded="true"] { background: var(--hover); }
+.app-menu span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-menu .ic-18 { width: 18px; height: 18px; }
+
+.tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 2px; padding: 0 12px 0 8px; }
+.tb-right .icon-btn { width: 32px; height: 28px; color: var(--text-secondary); }
+.tb-right .icon-btn .ic { width: 18px; height: 18px; }
+.tb-right .icon-btn[aria-pressed="true"] { color: var(--text); }
+
+/* the capsule */
+.capsule {
+  display: flex; align-items: center; gap: 0; height: 34px; padding: 0 4px;
+  border-radius: 17px; background: var(--capsule); box-shadow: var(--capsule-shadow);
+  min-width: 0; max-width: 560px; width: 100%; justify-self: center;
+  font-size: 12px; line-height: 16px;
+}
+.cap-seg {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 13px;
+  font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text); min-width: 0; flex: 0 1 auto;
+}
+.cap-seg:hover:not(:disabled), .cap-seg[aria-expanded="true"] { background: var(--hover); }
+.cap-seg span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-scheme { max-width: 44%; }
+.cap-scheme .ic-mark { width: 16px; height: 16px; }
+.cap-dest { max-width: 44%; }
+.cap-dest .ic { width: 13px; height: 13px; color: var(--text-secondary); }
+.cap-chev { color: var(--text-tertiary); flex: none; margin: 0 -1px; }
+.cap-status {
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: 1 1 0; min-width: 0; height: 26px;
+  padding: 0 12px 0 10px; margin-left: 4px; border-radius: 13px;
+  font-size: 12px; line-height: 16px; text-align: right; color: var(--text);
+  border-left: 0.5px solid var(--divider); border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+.cap-status:hover { background: var(--hover); border-radius: 13px; border-left-color: transparent; }
+.cap-status .st-label { font-weight: 600; white-space: nowrap; flex: none; }
+.cap-status .st-sep { color: var(--text-secondary); flex: none; margin: 0 1px; }
+.cap-status .st-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--text); }
+.cap-status .st-detail .tick { font-variant-numeric: tabular-nums; }
+.cap-status .st-more { color: var(--text-secondary); flex: none; }
+.cap-status .ic-14 { width: 14px; height: 14px; }
+.cap-status[data-kind="offline"] .st-label, .cap-status[data-kind="fail"] .st-label { color: var(--fail); }
+.cap-status[data-kind="warn"] .st-label { color: var(--warn); }
+.cap-status .tag { flex: none; }
+
+/* menus */
+.overlay { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+.overlay > * { pointer-events: auto; }
+.menu-backdrop { position: fixed; inset: 0; background: transparent; z-index: 60; }
+.menu {
+  position: fixed; z-index: 61; min-width: 200px; max-width: 420px; padding: 5px; border-radius: 10px; overflow: auto;
+  background: var(--menu); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: var(--menu-shadow), 0 0 0 0.5px var(--menu-border);
+  font-size: 13px; line-height: 20px;
+  animation: menu-in 0.09s ease-out;
+}
+@keyframes menu-in { from { opacity: 0; transform: translateY(-3px); } }
+.mi {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 22px; padding: 1px 10px 1px 4px; border-radius: 5px;
+  color: var(--text); text-align: left; cursor: default;
+}
+.mi:focus, .mi:hover:not(:disabled) { background: var(--accent); color: var(--accent-text); outline: none; }
+.mi:disabled { color: var(--text-tertiary); }
+.mi-danger:not(:hover):not(:focus) { color: var(--fail); }
+.mi-check { width: 14px; flex: none; display: grid; place-items: center; }
+.mi-icon { flex: none; display: grid; place-items: center; color: inherit; opacity: 0.8; }
+.mi-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-sub { color: var(--text-tertiary); font-size: 11.5px; }
+.mi:focus .mi-sub, .mi:hover:not(:disabled) .mi-sub { color: rgb(255 255 255 / 75%); }
+.mi-kbd { color: var(--text-tertiary); font-size: 12px; margin-left: 18px; }
+.mi:focus .mi-kbd, .mi:hover:not(:disabled) .mi-kbd { color: rgb(255 255 255 / 80%); }
+.menu-sep { height: 1px; margin: 5px 6px; background: var(--menu-border); }
+.menu-header { padding: 4px 10px 2px 22px; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--text-secondary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .menu { animation: none; }
+}

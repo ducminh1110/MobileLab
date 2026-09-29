@@ -1,0 +1,66 @@
+/* Colour tokens (docs/design/xcode-interface.md section 3).
+   Light and dark values live side by side in light-dark(); the appearance follows
+   prefers-color-scheme unless Settings pins it with html[data-theme]. */
+:root {
+  color-scheme: light dark;
+
+  --window: light-dark(#f5f5f7, #2a2a2d);
+  --sidebar: light-dark(#f3f5f7, #262629);
+  --editor: light-dark(#ffffff, #1f1f24);
+  --gutter: light-dark(#fbfbfc, #1f1f24);
+  --gutter-text: light-dark(#b4b6ba, #5f6068);
+  --divider: light-dark(#e4e4e8, #3a3a3f);
+  --text: light-dark(#1d1d1f, #ececee);
+  --text-secondary: light-dark(#6c6c72, #a0a0a8);
+  --text-tertiary: light-dark(#a1a1a8, #6f6f78);
+  --accent: light-dark(#0a7aff, #0a84ff);
+  --accent-text: #ffffff;
+  --selection: light-dark(#dcdde1, #3c3c42);
+  --selection-focused: var(--accent);
+  --capsule: light-dark(#ffffff, #3b3b3f);
+  --capsule-shadow: light-dark(0 0.5px 3px rgb(0 0 0 / 16%), 0 0.5px 3px rgb(0 0 0 / 50%));
+  --folder: #5cb0f5;
+  --field: light-dark(#efeff1, #333338);
+  --debug-bar: light-dark(#f2f2f4, #2c2c30);
+  --console: light-dark(#eaf1e8, #1d2a22);
+  --console-footer: light-dark(#dbe7d9, #17211b);
+  --line-current: light-dark(#e5f7e8, #26372c);
+  --line-error: light-dark(#fdeceb, #3a2426);
+  --pass: light-dark(#30b356, #32d15b);
+  --fail: light-dark(#ff3b30, #ff453a);
+  --warn: light-dark(#ff9f0a, #ffb340);
+  --running: var(--accent);
+  --breakpoint: light-dark(#097dfe, #0a84ff);
+
+  /* log / editor syntax */
+  --syn-comment: light-dark(#5d6c79, #6c7986);
+  --syn-keyword: light-dark(#ad3da4, #fc5fa3);
+  --syn-string: light-dark(#d12f1b, #fc6a5d);
+  --syn-number: light-dark(#272ad8, #d0bf69);
+  --syn-type: light-dark(#703daa, #d0a8ff);
+  --syn-identifier: light-dark(#326d74, #67b7a4);
+  --syn-error: var(--fail);
+  --syn-success: var(--pass);
+
+  /* derived surfaces (not in the spec table; kept together so both appearances stay consistent) */
+  --hover: light-dark(rgb(0 0 0 / 5%), rgb(255 255 255 / 7%));
+  --pressed: light-dark(rgb(0 0 0 / 9%), rgb(255 255 255 / 12%));
+  --canvas: light-dark(#e9eaee, #17171b);
+  --menu: light-dark(rgb(248 248 250 / 94%), rgb(52 52 57 / 94%));
+  --menu-border: light-dark(rgb(0 0 0 / 12%), rgb(255 255 255 / 12%));
+  --menu-shadow: light-dark(0 8px 28px rgb(0 0 0 / 22%), 0 8px 28px rgb(0 0 0 / 55%));
+  --sheet: light-dark(#f6f6f8, #2f2f34);
+  --scrim: light-dark(rgb(0 0 0 / 22%), rgb(0 0 0 / 48%));
+  --input-border: light-dark(rgb(0 0 0 / 14%), rgb(255 255 255 / 16%));
+  --pill-error: light-dark(#ff3b30, #ff453a);
+  --pill-error-text: #ffffff;
+  --pill-pass: light-dark(#30b356, #32d15b);
+  --badge-line: light-dark(#e4e4e8, #3a3a3f);
+  --bezel: light-dark(#1b1b1e, #0b0b0d);
+
+  --font-ui: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
