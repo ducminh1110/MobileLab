@@ -136,7 +136,8 @@ export async function followJobs(ctx: CliContext, input: FollowInput): Promise<F
             try {
               const output = await client.jobOutput(id);
               relay!.prime(id, logLines(output.text, output.truncated), output.attempt);
-            } catch {
+            } catch (error) {
+              out.warn(`Could not read the output of job ${shortId(id)} so far: ${errorText(error)}`);
               relay!.prime(id, []);
             }
           })
@@ -181,7 +182,7 @@ export async function followJobs(ctx: CliContext, input: FollowInput): Promise<F
         const live = feed.healthy;
         for (const job of jobs) {
           const before = latest.get(job.id);
-          for (const line of pollLines(before, job, live)) progress.log(`${tag(job.id)}${line}`);
+          for (const line of pollLines(before, job, live)) progress.log(`${tag(job.id)}${sanitize(line)}`);
           if (job.status === "queued" && job.waitingReason && job.waitingReason !== before?.waitingReason) {
             progress.log(`${tag(job.id)}${out.dim(`Waiting: ${sanitize(job.waitingReason)}`)}`);
           }

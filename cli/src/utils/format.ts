@@ -1,8 +1,5 @@
-// eslint-disable-next-line no-control-regex
 const CSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
-// eslint-disable-next-line no-control-regex
 const OSC = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g;
-// eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f]/g;
 
 /** Removes ANSI escape sequences. */

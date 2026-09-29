@@ -1,4 +1,5 @@
 import { ApiError, BackendUnreachableError, CliError, EXIT } from "../errors";
+import { sanitize } from "../utils/format";
 import {
   Capabilities,
   Catalog,
@@ -240,7 +241,8 @@ export function toApiError(status: number, statusText: string, body: string): Ap
   let code: string | undefined;
   try {
     const parsed = JSON.parse(body) as { error?: unknown; message?: unknown };
-    if (typeof parsed.message === "string" && parsed.message) message = parsed.message;
+    // Server text reaches the terminal, so it never keeps its escape sequences.
+    if (typeof parsed.message === "string" && parsed.message) message = sanitize(parsed.message);
     if (typeof parsed.error === "string") code = parsed.error;
   } catch {
     /* not JSON */

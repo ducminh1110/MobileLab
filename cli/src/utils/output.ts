@@ -1,19 +1,19 @@
-import { Chalk, type ChalkInstance } from "chalk";
 import { ResolvedConfig } from "../config";
 import { CliIO } from "../io";
 import { DeviceStatus, JobStatus } from "../client/types";
 import { sanitize } from "./format";
+import { createStyle, Style } from "./style";
 
 /** Everything a command prints goes through here, so it can be captured, colored or silenced in one place. */
 export class Output {
-  /** chalk configured for this run: a no-op when colors are off. */
-  readonly c: ChalkInstance;
+  /** Colours for this run: plain text when colours are off. */
+  readonly c: Style;
 
   constructor(
     readonly io: CliIO,
     readonly config: ResolvedConfig
   ) {
-    this.c = new Chalk({ level: config.color ? 1 : 0 });
+    this.c = createStyle(config.color);
   }
 
   /** A line on stdout. Server-provided text must be `sanitize`d by the caller (tables and helpers here do it). */

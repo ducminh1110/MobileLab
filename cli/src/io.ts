@@ -46,6 +46,16 @@ export function defaultIO(): CliIO {
   };
 }
 
-export function resolveIO(partial: Partial<CliIO> = {}): CliIO {
-  return { ...defaultIO(), ...partial };
+/** What callers may pass to `main()`: writers can be objects with `write(text)` or plain functions. */
+export interface CliIOInput extends Partial<Omit<CliIO, "stdout" | "stderr">> {
+  stdout?: Writer | ((text: string) => void);
+  stderr?: Writer | ((text: string) => void);
+}
+
+const asWriter = (writer: Writer | ((text: string) => void)): Writer => (typeof writer === "function" ? { write: writer } : writer);
+
+export function resolveIO(input: CliIOInput = {}): CliIO {
+  const { stdout, stderr, ...rest } = input;
+  const base = defaultIO();
+  return { ...base, ...rest, stdout: stdout ? asWriter(stdout) : base.stdout, stderr: stderr ? asWriter(stderr) : base.stderr };
 }

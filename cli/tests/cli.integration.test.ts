@@ -6,6 +6,7 @@ import { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { ANSI, CliResult, closedPortUrl, runCli, startProxy, waitFor, withBackend } from "./helpers";
+import { main } from "../src/cli";
 import type { TestJob, TestRunView } from "../src/client/types";
 
 const RT_18 = "com.apple.CoreSimulator.SimRuntime.iOS-18-0";
@@ -257,7 +258,7 @@ test("test run: --timeout stops waiting, exits 1, and leaves the job running", a
       const [job] = backend.services.orchestrator.listJobs();
       assert.ok(["queued", "running"].includes(job.status), `the job was not cancelled (it is ${job.status})`);
     },
-    { mockLatencyMs: 100 }
+    { mockLatencyMs: 40 }
   );
 });
 
@@ -275,7 +276,7 @@ test("test run: Ctrl+C cancels the job, reports it and exits 130", async () => {
       assert.match(result.stderr, /Cancelled job [0-9a-f]{8} \(SlowApp\)/);
       assert.equal(backend.services.orchestrator.listJobs()[0].status, "cancelled", "the backend really stopped the job");
     },
-    { mockLatencyMs: 100 }
+    { mockLatencyMs: 40 }
   );
 });
 
@@ -292,7 +293,7 @@ test("test run: Ctrl+C on a matrix cancels the whole run", async () => {
       assert.match(result.stderr, /Cancelled run [0-9a-f]{8} \(2 jobs cancelled/);
       assert.deepEqual(backend.services.orchestrator.listJobs().map((j) => j.status), ["cancelled", "cancelled"], "including the job that never started");
     },
-    { mockLatencyMs: 100 }
+    { mockLatencyMs: 40 }
   );
 });
 
@@ -379,7 +380,7 @@ test("test run: a backend that disappears mid-run is exit 2 with the usual hint"
       assert.equal(result.code, 2);
       assert.equal(result.stderr.trim().split("\n").pop(), `Cannot reach the MobileLab backend at ${proxy.url}. Start it with "make dev" or set IOSLAB_API_URL.`);
     },
-    { mockLatencyMs: 100 }
+    { mockLatencyMs: 40 }
   );
 });
 
@@ -460,7 +461,7 @@ test("test cancel stops a running job; test rerun refuses a job that has not fin
       assert.match(cancel.stdout, /Cancelled job [0-9a-f]{8} \(SlowApp\); it is now cancelled/);
       assert.equal(backend.services.orchestrator.getJob(job.id)!.status, "cancelled");
     },
-    { mockLatencyMs: 100 }
+    { mockLatencyMs: 40 }
   );
 });
 
@@ -551,7 +552,7 @@ test("logs -f follows a running job to the end without repeating or dropping lin
       const order = tests.map((name) => result.stdout.indexOf(`${name}]' passed`));
       assert.deepEqual([...order].sort((a, b) => a - b), order, "in order");
     },
-    { mockLatencyMs: 100 }
+    { mockLatencyMs: 40 }
   );
 });
 
@@ -584,7 +585,7 @@ test("logs -f works without the live stream too (it polls the log)", async () =>
         await proxy.stop();
       }
     },
-    { mockLatencyMs: 100 }
+    { mockLatencyMs: 40 }
   );
 });
 
@@ -601,7 +602,7 @@ test("logs -f: Ctrl+C stops watching (exit 130) but leaves the job alone", async
       assert.equal(result.code, 130);
       assert.notEqual(backend.services.orchestrator.getJob(job.id)!.status, "cancelled");
     },
-    { mockLatencyMs: 100 }
+    { mockLatencyMs: 40 }
   );
 });
 
@@ -1120,5 +1121,57 @@ test("text that comes from the server cannot inject escape sequences into the te
     const listed = await runCli(["devices"], { url: backend.url, tty: false });
     assert.doesNotMatch(listed.stdout, /\u001b/);
     assert.match(listed.stdout, /Evil/);
+  });
+});
+
+test("a bad API token is a usage error before any request is made; surrounding whitespace is ignored", async () => {
+  const bad = await runCli(["devices", "--token", "two words"], { url: await closedPortUrl() });
+  assert.equal(bad.code, 2);
+  assert.match(bad.stderr, /API token contains characters that cannot be sent/);
+  assert.doesNotMatch(bad.stderr, /Cannot reach/);
+
+  await withBackend(
+    async (backend) => {
+      const padded = await runCli(["devices"], { url: backend.url, env: { IOSLAB_API_TOKEN: "s3cret\n" } });
+      assert.equal(padded.code, 0, padded.stderr);
+    },
+    { apiToken: "s3cret" }
+  );
+});
+
+test("Ctrl+C during a command that has no cleanup to do just stops it (exit 130)", async () => {
+  await withBackend(
+    async (backend) => {
+      const controller = new AbortController();
+      const spawning = runCli(["spawn", "Slow Phone"], { url: backend.url, interrupt: controller.signal });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      controller.abort(130);
+      const result = await spawning;
+      assert.equal(result.code, 130);
+      assert.match(result.stderr, /Interrupted\./);
+
+      // SIGTERM (what CI systems send) is 143
+      const term = new AbortController();
+      const again = runCli(["spawn", "Other Phone"], { url: backend.url, interrupt: term.signal });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      term.abort(143);
+      assert.equal((await again).code, 143);
+    },
+    { mockLatencyMs: 300 }
+  );
+});
+
+test("main() takes plain function writers and tolerates a raw process.argv", async () => {
+  await withBackend(async (backend) => {
+    let out = "";
+    let err = "";
+    const code = await main(["node", "/usr/local/bin/ioslab", "devices"], {
+      stdout: (text) => void (out += text),
+      stderr: (text) => void (err += text),
+      env: { IOSLAB_API_URL: backend.url }
+    });
+    assert.equal(code, 0);
+    assert.match(out, /No devices\./);
+    assert.equal(err, "");
   });
 });

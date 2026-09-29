@@ -18,7 +18,7 @@ export interface ResolvedConfig {
   json: boolean;
   /** ANSI colors are allowed. */
   color: boolean;
-  /** Spinners and in-place updates are allowed (both stdout and stderr are terminals). */
+  /** Spinners and in-place updates are allowed (both stdout and stderr are terminals, and this is not CI). */
   interactive: boolean;
 }
 
@@ -41,14 +41,19 @@ export function normalizeApiUrl(raw: string): string {
 export function resolveConfig(options: GlobalOptions, io: CliIO): ResolvedConfig {
   const env = io.env;
   const api = options.api ?? (env.IOSLAB_API_URL || DEFAULT_API_URL);
-  const token = options.token || env.IOSLAB_API_TOKEN || undefined;
+  const token = (options.token || env.IOSLAB_API_TOKEN || "").trim() || undefined;
+  if (token && /[^\x21-\x7e]/.test(token)) {
+    throw new UsageError("The API token contains characters that cannot be sent in an HTTP header (spaces or control characters).");
+  }
 
   const dumbTerminal = env.TERM === "dumb";
   const stdoutIsTty = Boolean(io.stdout.isTTY);
   const noColor = options.color === false || (env.NO_COLOR !== undefined && env.NO_COLOR !== "");
   const color = stdoutIsTty && !noColor && !dumbTerminal;
   const json = Boolean(options.json);
-  const interactive = stdoutIsTty && Boolean(io.stderr.isTTY) && !dumbTerminal && !json;
+  // CI systems that allocate a pseudo-terminal still want plain, line-per-event logs.
+  const inCi = env.CI !== undefined && !["", "0", "false"].includes(env.CI.toLowerCase());
+  const interactive = stdoutIsTty && Boolean(io.stderr.isTTY) && !dumbTerminal && !json && !inCi;
 
   return { apiUrl: normalizeApiUrl(api), token, json, color, interactive };
 }

@@ -81,7 +81,7 @@ async function submit(ctx: CliContext, scheme: string, options: RunOptions): Pro
 }
 
 function requirementText(job: TestJob): string {
-  return [job.requiredRuntime, job.requiredModelId].filter((v): v is string => !!v).map((id) => id.split(".").pop()).join(" · ");
+  return [job.requiredRuntime, job.requiredModelId].filter((v): v is string => !!v).map((id) => oneLine(id.split(".").pop() ?? id)).join(" · ");
 }
 
 function printQueued(ctx: CliContext, submitted: Submitted): void {

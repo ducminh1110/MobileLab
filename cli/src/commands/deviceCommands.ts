@@ -20,7 +20,7 @@ export function deviceColumns(out: Output): Array<Column<Device>> {
 }
 
 export function describeDevice(device: Pick<Device, "name" | "runtimeName" | "runtime" | "type">): string {
-  const where = device.type === "vm" ? "" : ` (${device.runtimeName ?? device.runtime})`;
+  const where = device.type === "vm" ? "" : ` (${oneLine(device.runtimeName ?? device.runtime)})`;
   return `${oneLine(device.name)}${where}`;
 }
 

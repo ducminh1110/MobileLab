@@ -1,4 +1,3 @@
-import { Chalk } from "chalk";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { catalogCommand } from "./commands/catalogCommand";
 import { bootCommand, devicesCommand, removeCommand, shutdownCommand, spawnCommand } from "./commands/deviceCommands";
@@ -10,10 +9,10 @@ import { vmBackupCommand, vmBootCommand, vmListCommand, vmNewCommand, VmNewOptio
 import { GlobalOptions } from "./config";
 import { CliContext, createContext, InterruptState } from "./context";
 import { CliError, EXIT } from "./errors";
-import { CliIO, resolveIO } from "./io";
+import { createStyle } from "./utils/style";
+import { CliIO, CliIOInput, resolveIO } from "./io";
 import { JOB_STATUSES } from "./client/types";
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { version } = require("../package.json") as { version: string };
 
 const collect = (value: string, previous: string[] = []): string[] => [...previous, value];
@@ -260,7 +259,7 @@ function reportError(error: unknown, io: CliIO, globals: GlobalOptions): number 
   // commander has already printed its own message for usage errors; --help and --version count as success.
   if (error instanceof CommanderError) return error.exitCode === 0 ? EXIT.OK : EXIT.USAGE;
 
-  const red = new Chalk({ level: errorColor(io, globals) ? 1 : 0 }).red;
+  const red = createStyle(errorColor(io, globals)).red;
   if (error instanceof CliError) {
     if (error.message) io.stderr.write(`${red(error.message)}\n`);
     return error.exitCode;
@@ -270,11 +269,18 @@ function reportError(error: unknown, io: CliIO, globals: GlobalOptions): number 
   return EXIT.FAILED;
 }
 
+export { CliError } from "./errors";
+
+/** `["node", "/path/to/ioslab", ...]` (a raw `process.argv`) is accepted too; only the arguments matter. */
+function userArguments(argv: string[]): string[] {
+  return argv.length >= 2 && /(^|[\\/])node(\.exe)?$/.test(argv[0]) ? argv.slice(2) : argv;
+}
+
 /**
  * Runs the CLI. `argv` is the arguments after the program name (`process.argv.slice(2)`). Returns the
  * exit code instead of exiting, and writes only through `io`, so it can be driven from tests.
  */
-export async function main(argv: string[], partialIo: Partial<CliIO> = {}): Promise<number> {
+export async function main(argv: string[], partialIo: CliIOInput = {}): Promise<number> {
   const io = resolveIO(partialIo);
   const interrupt = new InterruptState(io.interrupt ?? new AbortController().signal);
   const state: RunState = { exitCode: EXIT.OK, globals: {} };
@@ -292,7 +298,7 @@ export async function main(argv: string[], partialIo: Partial<CliIO> = {}): Prom
   interrupted.catch(() => undefined);
 
   try {
-    await Promise.race([program.parseAsync(argv, { from: "user" }), interrupted]);
+    await Promise.race([program.parseAsync(userArguments(argv), { from: "user" }), interrupted]);
     return state.exitCode;
   } catch (error) {
     return reportError(error, io, state.globals);

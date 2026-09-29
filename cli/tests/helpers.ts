@@ -136,5 +136,4 @@ export async function startProxy(targetPort: number, upgrade: "refuse" | "drop")
   };
 }
 
-// eslint-disable-next-line no-control-regex
 export const ANSI = /\u001b\[/;

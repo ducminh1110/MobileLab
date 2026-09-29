@@ -941,6 +941,7 @@ export class OrchestratorService {
 
     let result: CommandResult | undefined;
     let launchError: string | undefined;
+    const attemptStarted = Date.now();
     try {
       result = await this.engine.xcodebuild.runTests({
         scheme: job.testTarget,
@@ -967,7 +968,8 @@ export class OrchestratorService {
     this.storeAttemptArtifacts(job, device, attempt, { logFile, bundle, parsed, exitCode: result?.code });
     this.releaseDevice(deviceId);
 
-    const durationMs = result?.durationMs ?? Date.now() - Date.parse(this.requireJob(jobId).startedAt ?? nowIso());
+    // Wall clock for this attempt, measured here rather than trusted from the runner.
+    const durationMs = Date.now() - attemptStarted;
     const summary = parsed.summary;
     const base = { exitCode: result?.code, summary, durationMs };
 

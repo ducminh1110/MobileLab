@@ -34,6 +34,14 @@ test("the token comes from the flag, then the environment", () => {
   assert.equal(resolveConfig({ token: "flag" }, io({ IOSLAB_API_TOKEN: "env" })).token, "flag");
 });
 
+test("a token with surrounding whitespace is trimmed; one that cannot be an HTTP header value is rejected", () => {
+  assert.equal(resolveConfig({}, io({ IOSLAB_API_TOKEN: " abc\n" })).token, "abc");
+  assert.equal(resolveConfig({}, io({ IOSLAB_API_TOKEN: "   " })).token, undefined);
+  assert.throws(() => resolveConfig({ token: "a b" }, io()), UsageError);
+  assert.throws(() => resolveConfig({ token: "a\u0001b" }, io()), UsageError);
+  assert.throws(() => resolveConfig({ token: "tökén" }, io()), UsageError);
+});
+
 test("colors and spinners need a terminal, and respect NO_COLOR and --no-color", () => {
   const pipe = resolveConfig({}, io());
   assert.deepEqual([pipe.color, pipe.interactive], [false, false]);
@@ -55,4 +63,9 @@ test("colors and spinners need a terminal, and respect NO_COLOR and --no-color",
   assert.deepEqual([errRedirected.color, errRedirected.interactive], [true, false]);
 
   assert.equal(resolveConfig({ json: true }, io({}, true, true)).interactive, false, "--json never draws a spinner");
+
+  // A terminal inside CI keeps colors (the log viewer may render them) but gets plain progress lines.
+  assert.equal(resolveConfig({}, io({ CI: "true" }, true, true)).interactive, false);
+  assert.equal(resolveConfig({}, io({ CI: "true" }, true, true)).color, true);
+  assert.equal(resolveConfig({}, io({ CI: "false" }, true, true)).interactive, true);
 });

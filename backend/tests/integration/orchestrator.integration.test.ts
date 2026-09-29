@@ -428,3 +428,12 @@ test("a job is never given two simulators while its first one is still being res
     cleanup(ctx.dataDir);
   }
 });
+
+test("job duration is the measured wall-clock time of the attempt", async () => {
+  await withApp(async ({ services }) => {
+    const job = await services.orchestrator.enqueueTest({ testTarget: "SlowApp" });
+    const done = await finished(services.orchestrator, job.id);
+    assert.ok(done.durationMs! >= 250, `SlowApp takes ~320ms in the mock, got ${done.durationMs}ms`);
+    assert.ok(done.durationMs! < 5000);
+  });
+});

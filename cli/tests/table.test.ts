@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Chalk } from "chalk";
+import { createStyle } from "../src/utils/style";
 import { Column, renderTable } from "../src/utils/table";
 
 interface Row {
@@ -69,7 +69,7 @@ test("a flex column is not squeezed below its minimum width", () => {
 });
 
 test("styled cells (ANSI) do not disturb alignment", () => {
-  const chalk = new Chalk({ level: 1 });
+  const chalk = createStyle(true);
   const styled: Array<Column<Row>> = [
     { header: "NAME", value: (r) => r.name, style: (t) => chalk.green(t) },
     { header: "COUNT", value: (r) => String(r.count), align: "right", style: (t) => chalk.red(t) },
@@ -81,13 +81,12 @@ test("styled cells (ANSI) do not disturb alignment", () => {
   ];
   const plainLines = renderTable(columns, rows);
   const colored = renderTable(styled, rows, { headerStyle: (t) => chalk.bold(t) });
-  // eslint-disable-next-line no-control-regex
   const strip = (s: string) => s.replace(/\u001b\[\d+m/g, "");
   assert.ok(colored.some((line) => line.includes("\u001b[32m")), "the style was applied");
   assert.deepEqual(colored.map(strip), plainLines);
 });
 
 test("characters are counted as code points, so astral characters do not break alignment", () => {
-  const lines = renderTable([{ header: "S", value: (r: { s: string }) => r.s }, { header: "T", value: (r: { s: string }) => "t" }], [{ s: "✔✔✔" }, { s: "😀" }]);
+  const lines = renderTable([{ header: "S", value: (r: { s: string }) => r.s }, { header: "T", value: () => "t" }], [{ s: "✔✔✔" }, { s: "😀" }]);
   assert.deepEqual(lines, ["S    T", "✔✔✔  t", "😀    t"]);
 });

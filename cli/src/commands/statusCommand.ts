@@ -8,7 +8,7 @@ import { jobListColumns } from "./jobFormat";
 const RECENT_JOBS = 10;
 
 export function demoBanner(ctx: CliContext): string {
-  return ctx.out.c.bold.yellow("!! DEMO MODE: simulator commands are simulated and test results are NOT real !!");
+  return ctx.out.c.bold(ctx.out.c.yellow("!! DEMO MODE: simulator commands are simulated and test results are NOT real !!"));
 }
 
 /** `ioslab status`: what the backend is, what it can carry, which devices exist and what ran recently. */
