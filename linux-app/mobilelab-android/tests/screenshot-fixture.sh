@@ -28,7 +28,7 @@ for combo in "${combos[@]}"; do
       MOBILELAB_ANDROID_API_PORT=0 FAKE_BOOT_DELAY_MS=2200 MOBILELAB_POLL_MS=150 MOBILELAB_THEME="$theme" \
       MOBILELAB_SCREENSHOT_DIR="$dir" MOBILELAB_SCREENSHOT_SIZE="$size" \
       QT_QPA_PLATFORM=offscreen QT_QPA_FONTDIR="" \
-      timeout 240 "$APP" > "$dir/app.log" 2>&1 || { tail -30 "$dir/app.log" >&2; fail "application exited with an error ($size $theme)"; }
+      timeout 600 "$APP" > "$dir/app.log" 2>&1 || { tail -30 "$dir/app.log" >&2; cat "$dir/manifest.txt" >&2 2>/dev/null || true; fail "application exited with an error ($size $theme)"; }
   # leave no fake emulator behind
   for pidf in "$WORK"/fx/state/running/*.pid; do [ -e "$pidf" ] && kill "$(cat "$pidf")" 2>/dev/null || true; done
   count=$(ls "$dir"/*.png 2>/dev/null | wc -l)

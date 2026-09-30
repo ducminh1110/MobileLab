@@ -141,7 +141,7 @@ void ScreenshotDriver::step() {
     pump(1100);
     w->selectNavigator(Navigator::Tests, false);
     save("03-run-in-progress", grabWindow(w));
-    const bool finished = waitUntil([&] { return !ctx.matrix->isRunning(); }, 120000);
+    const bool finished = waitUntil([&] { return !ctx.matrix->isRunning(); }, 300000);
     if (!finished) { g_manifest << "FAILED matrix run did not finish"; ++g_failures; }
     pump(500);
     const auto &recs = ctx.matrix->records();

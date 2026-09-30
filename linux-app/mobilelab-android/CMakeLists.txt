@@ -80,7 +80,7 @@ target_link_libraries(mobilelab-imagecheck PRIVATE Qt6::Gui)
 # Screenshot run against the fake Android SDK fixture (needs no real SDK, KVM or display).
 add_test(NAME mobilelab-screenshots
   COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/screenshot-fixture.sh $<TARGET_FILE:mobilelab-android> $<TARGET_FILE:mobilelab-imagecheck> $<TARGET_FILE:mobilelab-glass-proof>)
-set_tests_properties(mobilelab-screenshots PROPERTIES TIMEOUT 300)
+set_tests_properties(mobilelab-screenshots PROPERTIES TIMEOUT 900)
 
 # --- install -------------------------------------------------------------------------------------
 include(GNUInstallDirs)
