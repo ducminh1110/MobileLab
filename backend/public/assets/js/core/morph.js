@@ -35,12 +35,13 @@ export function applyVarsDeep(root) {
   if (root.querySelectorAll) for (const el of root.querySelectorAll("[data-v]")) applyVars(el);
 }
 
+// `style` is owned by the CSSOM (data-v variables, glass filters): markup never carries it, so it is never synced.
 function syncAttributes(from, to) {
   for (const attr of Array.from(from.attributes)) {
-    if (!to.hasAttribute(attr.name)) from.removeAttribute(attr.name);
+    if (attr.name !== "style" && !to.hasAttribute(attr.name)) from.removeAttribute(attr.name);
   }
   for (const attr of Array.from(to.attributes)) {
-    if (from.getAttribute(attr.name) !== attr.value) from.setAttribute(attr.name, attr.value);
+    if (attr.name !== "style" && from.getAttribute(attr.name) !== attr.value) from.setAttribute(attr.name, attr.value);
   }
 }
 

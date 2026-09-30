@@ -1,62 +1,76 @@
 /* Below 900px: one pane at a time. The navigator is a full-width screen with the tab bar at the bottom, the editor
    opens on selection with a back button, and the inspector and debug area open as full-height sheets. */
+/* Below 900px: one pane at a time. The navigator is a full-width screen with a floating glass tab bar at the bottom,
+   the editor opens on selection with a back button, and the inspector and debug area open as full-height sheets.
+   Glass degrades cleanly here: the same classes, no refraction budget needed, opaque when transparency is reduced. */
 .bottom-tabs { display: none; }
 .app[data-layout="wide"] .narrow-only { display: none; }
 
 .app[data-layout="narrow"] {
-  --toolbar-h: 98px;
+  --toolbar-h: 104px;
+  --pad: 8px;
   grid-template-rows: var(--toolbar-h) minmax(0, 1fr) auto;
 }
 .app[data-layout="narrow"] .wide-only { display: none; }
 .app[data-layout="narrow"] .toolbar {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas: "left title right" "cap cap cap";
-  align-content: center; row-gap: 6px; background: var(--window);
+  align-content: center; row-gap: 6px; transition: none;
 }
-.app[data-layout="narrow"] .tb-left { grid-area: left; padding: 0 4px 0 8px; gap: 0; }
+.app[data-layout="narrow"] .tb-left { grid-area: left; padding: 0; gap: 8px; }
 .app[data-layout="narrow"] .tb-title { grid-area: title; padding: 0 4px; }
-.app[data-layout="narrow"] .capsule { grid-area: cap; margin: 0 12px; width: auto; max-width: none; justify-self: stretch; }
-.app[data-layout="narrow"] .tb-right { grid-area: right; padding: 0 6px 0 0; }
-.app[data-layout="narrow"] .tb-btn { width: 36px; height: 34px; }
-.app[data-layout="narrow"] .tb-right .icon-btn { width: 36px; height: 34px; }
+.app[data-layout="narrow"] .capsule { grid-area: cap; margin: 0; width: auto; max-width: none; justify-self: stretch; }
+.app[data-layout="narrow"] .tb-right { grid-area: right; padding: 0; }
+.app[data-layout="narrow"] .tb-group { height: 38px; }
+.app[data-layout="narrow"] .tb-group.solo { width: 38px; }
+.app[data-layout="narrow"] .gbtn { height: 34px; width: 40px; }
 .app[data-layout="narrow"] .cap-scheme, .app[data-layout="narrow"] .cap-dest { max-width: 36%; }
 .app[data-layout="narrow"] .cap-status { padding-right: 8px; }
 
-.app[data-layout="narrow"] .workspace { display: block; position: relative; }
-.app[data-layout="narrow"] .navigator, .app[data-layout="narrow"] .center { position: absolute; inset: 0; width: auto; }
+.app[data-layout="narrow"] .workspace { display: block; position: relative; transition: none; }
+.app[data-layout="narrow"] .navigator, .app[data-layout="narrow"] .center { position: absolute; inset: 0 var(--pad) var(--pad); width: auto; }
+.app[data-layout="narrow"] .navigator { transition: none; transform: none; opacity: 1; visibility: visible; pointer-events: auto; justify-self: stretch; }
+.app[data-layout="narrow"] .center { transition: none; }
 .app[data-layout="narrow"] .divider { display: none; }
 .app[data-layout="narrow"] .inspector { display: none; }
 .app[data-layout="narrow"][data-screen="nav"] .center { display: none; }
 .app[data-layout="narrow"][data-screen="editor"] .navigator { display: none; }
 .app[data-layout="narrow"] .center { grid-template-rows: 28px minmax(0, 1fr); }
 .app[data-layout="narrow"] .debug { display: none; }
-.app[data-layout="narrow"] .nav-tabs { display: none; }
-.app[data-layout="narrow"] .navigator { visibility: visible; }
+.app[data-layout="narrow"] .nav-tabs-row { display: none; }
 
 .app[data-layout="narrow"][data-screen="nav"] .bottom-tabs {
-  display: flex; align-items: center; justify-content: space-around; height: calc(52px + env(safe-area-inset-bottom, 0px)); padding: 0 8px env(safe-area-inset-bottom, 0px);
-  background: var(--sidebar); box-shadow: inset 0 0.5px 0 var(--divider);
+  display: flex; align-items: center; justify-content: space-around; height: 48px; padding: 4px 6px;
+  margin: 0 14px calc(10px + env(safe-area-inset-bottom, 0px));
 }
-.bottom-tabs .nt { width: 40px; height: 40px; }
+.app[data-layout="narrow"][data-screen="nav"] { grid-template-rows: var(--toolbar-h) minmax(0, 1fr) auto; }
+.app[data-layout="narrow"][data-screen="nav"] .navigator { bottom: 0; }
+.bottom-tabs .nt { width: 100%; max-width: 52px; height: 40px; border-radius: 20px; }
 .bottom-tabs .nt .ic { width: 20px; height: 20px; }
+.bottom-tabs .nt + .nt::before { top: 11px; bottom: 11px; }
 
 /* comfortable touch targets */
 .app[data-layout="narrow"] .row { height: 34px; line-height: 34px; font-size: 14px; }
+.app[data-layout="narrow"] .row.gauge { height: 48px; line-height: 34px; }
+.app[data-layout="narrow"] .row.gauge .row-icon { margin-top: 9px; }
+.app[data-layout="narrow"] .row .spark { bottom: 6px; }
 .app[data-layout="narrow"] .row.var { height: 28px; line-height: 28px; font-size: 12.5px; }
-.app[data-layout="narrow"] .nf-field { height: 30px; }
-.app[data-layout="narrow"] .nav-filter { height: 44px; }
-.app[data-layout="narrow"] .jb-btn { width: 30px; height: 26px; }
+.app[data-layout="narrow"] .nf-field { height: 32px; }
+.app[data-layout="narrow"] .nav-filter { height: 48px; }
+.app[data-layout="narrow"] .jb-btn { width: 30px; height: 24px; }
 .app[data-layout="narrow"] .crumb-sep, .app[data-layout="narrow"] .crumbs .crumb:not(:last-child) span { display: none; }
 .app[data-layout="narrow"] .crumbs .crumb-sep { display: none; }
 .app[data-layout="narrow"] .crumbs .crumb:not(:last-child) { display: none; }
 
 .app[data-layout="narrow"][data-sheet="debug"] .debug, .app[data-layout="narrow"][data-sheet="inspector"] .inspector {
-  display: flex; position: fixed; inset: var(--toolbar-h) 0 0 0; z-index: 30; background: var(--editor); animation: sheet-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex; position: fixed; inset: var(--toolbar-h) 0 0 0; z-index: 30; width: auto; background: var(--editor);
+  border-radius: 14px 14px 0 0; animation: sheet-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  opacity: 1; transform: none; visibility: visible; pointer-events: auto; transition: none; justify-self: stretch;
 }
 .app[data-layout="narrow"][data-sheet="inspector"] .inspector { background: var(--sidebar); }
 .app[data-layout="narrow"] .db-close, .app[data-layout="narrow"] .it-close { display: grid; }
 .app[data-layout="narrow"] .db-panel { display: none; }
-.app[data-layout="narrow"] .debug-panes { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+.app[data-layout="narrow"] .debug-panes { height: auto; flex: 1 1 auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
 .app[data-layout="narrow"] .debug-panes[data-layout="vars"], .app[data-layout="narrow"] .debug-panes[data-layout="console"] { grid-template-rows: minmax(0, 1fr); }
 @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
 
@@ -79,3 +93,8 @@
 @media (prefers-reduced-motion: reduce) {
   .app[data-layout="narrow"][data-sheet="debug"] .debug, .app[data-layout="narrow"][data-sheet="inspector"] .inspector { animation: none; }
 }
+
+/* Phone width: the capsule must never overlap itself. Segments shrink and ellipsize; the DEMO tag moves to the Welcome banner. */
+.app[data-layout="narrow"] .cap-seg { min-width: 0; flex: 0 1 auto; }
+.app[data-layout="narrow"] .cap-status { min-width: 0; flex: 1 1 auto; }
+.app[data-layout="narrow"] .cap-status .tag { display: none; }

@@ -16,6 +16,7 @@ const defaults = {
   navTab: "devices",
   inspTab: "attributes",
   theme: "system",
+  glass: "on", // "on" | "reduced" (Settings: Liquid Glass)
   expanded: {},
   collapsedSections: {},
   scheme: "",
@@ -148,7 +149,7 @@ export function select(kind, id = null, { record = true, reveal = null } = {}) {
     h.index = h.stack.length - 1;
   }
   if (state.ui.narrow && kind !== "welcome") state.ui.narrowScreen = "editor";
-  invalidate("nav", "jump", "editor", "inspector", "debug", "toolbar");
+  invalidate("shell", "nav", "jump", "editor", "inspector", "debug", "toolbar");
 }
 
 export function historyGo(delta) {

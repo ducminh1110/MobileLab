@@ -1,24 +1,26 @@
 /* Navigator column: tab bar, trees (22px rows), filter bar. */
 .navigator { display: flex; flex-direction: column; }
 
+.nav-tabs-row { flex: none; padding: 8px 10px 4px; }
+/* the tab bar: one glass pill, 8 slots separated by hairlines, the selected one a filled accent circle */
 .nav-tabs {
-  position: relative; display: flex; align-items: center; justify-content: space-between; flex: none;
-  height: 44px; margin: 0; padding: 0 14px;
-}
-.nav-tabs::before {
-  content: ""; position: absolute; left: 8px; right: 8px; top: 6px; bottom: 6px; border-radius: 16px;
-  background: color-mix(in srgb, var(--text) 5%, transparent);
-}
-.nav-tabs, .bottom-tabs {
-  background-image: none;
+  position: relative; display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 2px 3px;
 }
 .nt {
-  position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
-  color: var(--text-secondary); flex: none;
+  position: relative; z-index: 1; display: grid; place-items: center; width: 100%; max-width: 38px; height: 26px; border-radius: 13px;
+  color: color-mix(in srgb, var(--text) 70%, transparent); flex: 1 1 0; transition: background-color 0.12s ease, color 0.12s ease;
 }
-.nt:hover:not(.selected) { background: var(--hover); color: var(--text); }
-.nt.selected { background: var(--accent); color: var(--accent-text); }
-.nt:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 2px; border-radius: 50%; }
+.nt .ic { width: 17px; height: 17px; stroke-width: 1.65; }
+.nt + .nt::before {
+  content: ""; position: absolute; left: -0.5px; top: 6px; bottom: 6px; width: 1px; background: var(--divider); opacity: 0.9;
+}
+.nt.selected + .nt::before, .nt.selected::before { opacity: 0; }
+.nt:hover:not(.selected) { background: var(--glass-hover); color: var(--text); }
+.nt.selected {
+  background: var(--accent); color: var(--accent-text);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 34%), inset 0 -1px 0 rgb(0 0 0 / 12%), 0 1px 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.nt:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 1px; border-radius: 13px; }
 
 .nav-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 0 10px; position: relative; }
 .app[data-conn="offline"] .nav-body { opacity: 0.5; }
@@ -50,10 +52,14 @@
 .row.dim { color: var(--text-tertiary); }
 .row[aria-disabled="true"] { cursor: default; }
 .row[aria-disabled="true"]:hover { background: none; }
-.row.root, .row.group { font-weight: 600; }
+.row.root { font-weight: 500; }
+.row.group { font-weight: 600; }
 .row.group { font-size: 12px; }
 
-.disc { display: grid; place-items: center; width: 12px; flex: none; color: var(--text-tertiary); margin-left: 0; }
+.disc { display: grid; place-items: center; width: 12px; flex: none; color: color-mix(in srgb, var(--text) 62%, transparent); margin-left: 0; }
+.disc .ic { stroke-width: 2.3; width: 11px; height: 11px; }
+.disc .ic { transition: transform 0.16s ease; }
+.row[aria-expanded="true"] > .disc .ic { transform: rotate(90deg); }
 .disc.none { visibility: hidden; }
 .disc:hover { color: var(--text-secondary); }
 .row-icon { display: grid; place-items: center; flex: none; }
@@ -95,7 +101,9 @@
 .row mark, .row-label mark { background: color-mix(in srgb, var(--warn) 55%, transparent); color: inherit; border-radius: 2px; }
 
 .row.gauge { height: 38px; align-items: flex-start; }
-.row.gauge .row-icon, .row.gauge .row-label, .row.gauge .row-trail, .row.gauge .disc { margin-top: 0; }
+.row.gauge + .row.gauge { box-shadow: inset 0 0.5px 0 var(--divider); border-radius: 0; }
+.row.gauge .row-icon { margin-top: 3px; }
+.row.gauge .row-label, .row.gauge .row-trail, .row.gauge .disc { margin-top: 0; }
 .row .spark {
   position: absolute; left: 38px; bottom: 3px; width: calc(100% - 52px); height: 9px;
   fill: var(--accent); opacity: 0.85;
@@ -121,23 +129,22 @@
 .find-input::placeholder { color: var(--text-tertiary); }
 .find-input::-webkit-search-cancel-button { display: none; }
 
-/* filter bar */
-.nav-filter { flex: none; height: 34px; display: flex; align-items: center; padding: 0 10px 0 12px; box-shadow: inset 0 0.5px 0 var(--divider); }
-.nf { display: flex; align-items: center; gap: 8px; width: 100%; }
-.nf-add, .nf-add-space { flex: none; width: 20px; height: 20px; }
-.nf-add { display: grid; place-items: center; border-radius: 5px; color: var(--text-secondary); }
+/* filter bar: a glass pill with the filter glyph, like Xcode's */
+.nav-filter { flex: none; height: 44px; display: flex; align-items: center; padding: 0 10px 0 8px; }
+.nf { display: flex; align-items: center; gap: 6px; width: 100%; }
+.nf-add, .nf-add-space { flex: none; width: 24px; height: 24px; }
+.nf-add { display: grid; place-items: center; border-radius: 12px; color: var(--text-secondary); }
 .nf-add:hover { background: var(--hover); color: var(--text); }
 .nf-field {
-  display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; height: 24px; padding: 0 6px 0 7px; border-radius: 12px;
-  background: var(--editor); box-shadow: 0 0 0 0.5px var(--input-border), 0 0.5px 1px rgb(0 0 0 / 6%);
+  display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; height: 26px; padding: 0 8px 0 8px;
 }
 .nf-field:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent), 0 0 0 0.5px var(--accent); }
 .nf-icon { flex: none; display: grid; place-items: center; color: var(--text-tertiary); }
 .nf-input { flex: 1; min-width: 0; height: 22px; border: 0; background: transparent; font-size: 13px; line-height: 22px; padding: 0 2px; }
 .nf-input:focus-visible { outline: none; }
-.nf-input::placeholder { color: var(--text-tertiary); }
+.nf-input::placeholder { color: color-mix(in srgb, var(--text) 46%, transparent); }
 .nf-clear { display: grid; place-items: center; color: var(--text-tertiary); flex: none; }
 .nf-clear:hover { color: var(--text-secondary); }
-.nf-toggle { display: grid; place-items: center; width: 20px; height: 18px; border-radius: 5px; color: var(--text-tertiary); flex: none; }
+.nf-toggle { display: grid; place-items: center; width: 20px; height: 18px; border-radius: 9px; color: var(--text-tertiary); flex: none; }
 .nf-toggle:hover { color: var(--text-secondary); background: var(--hover); }
 .nf-toggle[aria-pressed="true"] { color: var(--accent-text); background: var(--accent); }

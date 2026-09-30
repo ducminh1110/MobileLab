@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MobileLab Android
+Comment=Android device lab: AVDs, Waydroid and hybrid x86_64 + ARM64 test matrices
+Exec=mobilelab-android
+Icon=mobilelab-android
+Categories=Development;Debugger;
+Terminal=false
+StartupWMClass=mobilelab-android

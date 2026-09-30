@@ -1,7 +1,7 @@
 // Inspector (right): Attributes, History, Quick Help for whatever the editor shows; for nothing selected,
 // the backend itself. Sections have bold 11px headers with a disclosure triangle and 22px two-column rows.
 
-import { html, fmtWhen, fmtBytes, fmtTimeSec, fmtDuration, debounce } from "../core/util.js";
+import { html, raw, fmtWhen, fmtBytes, fmtTimeSec, fmtDuration, debounce } from "../core/util.js";
 import { icon } from "../core/icons.js";
 import { patch } from "../core/morph.js";
 import { state, prefs, setPref, savePrefs, invalidate, onRender, deviceById, jobById, runById, isActive } from "../core/state.js";
@@ -25,8 +25,8 @@ function section(key, title, rows) {
   if (!content) return "";
   const open = !prefs.collapsedSections[key];
   return html`<section class="isec" data-key="sec-${key}">
-    <button type="button" class="isec-head" data-action="isec-toggle" data-arg="${key}" aria-expanded="${open ? "true" : "false"}"><span class="isec-disc">${icon(open ? "chevron.down" : "chevron.right", "ic-10")}</span>${title}</button>
-    ${open ? html`<div class="isec-body">${rows}</div>` : ""}
+    <button type="button" class="isec-head" data-action="isec-toggle" data-arg="${key}" aria-expanded="${open ? "true" : "false"}" aria-controls="isec-${key}"><span class="isec-disc">${icon("chevron.right", "ic-10")}</span>${title}</button>
+    <div class="isec-wrap" id="isec-${key}" data-open="${open ? "1" : "0"}" ${open ? "" : raw("inert")}><div class="isec-body">${rows}</div></div>
   </section>`;
 }
 
@@ -195,10 +195,10 @@ function inspectorHtml() {
   const tab = prefs.inspTab;
   const body = tab === "history" ? historyHtml() : tab === "help" ? helpHtml() : attributesHtml();
   return html`
-    <div class="insp-tabs" role="tablist" aria-label="Inspector">
+    <div class="insp-tabs-row"><div class="insp-tabs glass glass-capsule glass-tabs" data-glass-shape="capsule" role="tablist" aria-label="Inspector">
       ${TABS.map((t) => html`<button type="button" class="it${tab === t.id ? " selected" : ""}" role="tab" id="itab-${t.id}" data-action="insp-tab" data-arg="${t.id}" aria-selected="${tab === t.id ? "true" : "false"}" aria-controls="insp-body" tabindex="${tab === t.id ? 0 : -1}" title="${t.label}" aria-label="${t.label}">${icon(t.icon, "ic-16")}</button>`)}
       <button type="button" class="it it-close" data-action="close-sheet" title="Close" aria-label="Close inspector">${icon("xmark", "ic-14")}</button>
-    </div>
+    </div></div>
     <div class="insp-body" id="insp-body" role="tabpanel" aria-labelledby="itab-${tab}" data-key="insp-body-${tab}">${body}</div>`;
 }
 

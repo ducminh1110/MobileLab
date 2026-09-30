@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/fonts">
+        <file alias="Inter-Regular.ttf">@MOBILELAB_FONT_DIR@/Inter-Regular.ttf</file>
+        <file alias="Inter-Medium.ttf">@MOBILELAB_FONT_DIR@/Inter-Medium.ttf</file>
+        <file alias="Inter-SemiBold.ttf">@MOBILELAB_FONT_DIR@/Inter-SemiBold.ttf</file>
+        <file alias="Inter-Bold.ttf">@MOBILELAB_FONT_DIR@/Inter-Bold.ttf</file>
+        <file alias="JetBrainsMono-Regular.ttf">@MOBILELAB_FONT_DIR@/JetBrainsMono-Regular.ttf</file>
+        <file alias="JetBrainsMono-Medium.ttf">@MOBILELAB_FONT_DIR@/JetBrainsMono-Medium.ttf</file>
+        <file alias="JetBrainsMono-Bold.ttf">@MOBILELAB_FONT_DIR@/JetBrainsMono-Bold.ttf</file>
+        <file alias="LICENSE-Inter.txt">@MOBILELAB_FONT_DIR@/LICENSE-Inter.txt</file>
+        <file alias="OFL-JetBrainsMono.txt">@MOBILELAB_FONT_DIR@/OFL-JetBrainsMono.txt</file>
+    </qresource>
+    <qresource prefix="/icons">
+@MOBILELAB_ICON_ENTRIES@
+    </qresource>
+</RCC>

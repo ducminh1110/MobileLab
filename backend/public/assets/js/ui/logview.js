@@ -140,7 +140,7 @@ export class LogView {
       <div class="logv-scroll" tabindex="0" role="log" aria-label="Build and test log" aria-live="off">
         <div class="logv-sizer"><div class="logv-rows"></div></div>
       </div>
-      <button type="button" class="jump-pill" hidden>${icon("arrow.down.circle", "ic-14")}<span>Jump to end</span></button>
+      <button type="button" class="jump-pill glass glass-capsule glass-lift" data-glass-shape="capsule" hidden>${icon("arrow.down.circle", "ic-14")}<span>Jump to end</span></button>
       <div class="logv-note" role="status"></div>`;
     this.host.appendChild(root);
     this.root = root;
@@ -305,11 +305,27 @@ export class LogView {
       let pill = "";
       if (meta?.pill) pill = `<span class="pill pill-err">${icon("xmark.circle.fill", "ic-12")}<span>${esc(meta.pill)}</span></span>`;
       else if (isCur && this.live) pill = `<span class="pill pill-run"><span class="spin spin-sm"></span><span>Running</span></span>`;
+      if (pill) cls.push("has-pill");
       out += `<div class="${cls.join(" ")}" data-n="${n}"><span class="lg"><span class="lg-mark">${mark}</span><span class="lg-n">${n}</span></span><span class="lc">${highlightLine(line)}</span>${pill}</div>`;
     }
     this.rows.style.transform = `translateY(${first * ROW}px)`;
     this.rows.innerHTML = out;
+    this.fitPills();
     this.pill.hidden = !(this.live && !this.follow);
+  }
+
+  /**
+   * A pill is pinned to the right edge of the viewport while the row itself can be wider (long lines), so the
+   * pill would sit on top of the text. Give the text only the room left of the pill and let it ellipsize.
+   */
+  fitPills() {
+    const view = this.scroll.clientWidth;
+    const gutter = parseFloat(getComputedStyle(this.root ?? this.scroll).getPropertyValue("--gutter-w")) || 64;
+    for (const row of this.rows.querySelectorAll(".ll.has-pill")) {
+      const pill = row.querySelector(".pill");
+      const text = row.querySelector(".lc");
+      if (pill && text) text.style.maxWidth = `${Math.max(120, view - gutter - pill.offsetWidth)}px`;
+    }
   }
 
   text() { return this.model.lines.join("\n"); }

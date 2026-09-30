@@ -48,20 +48,24 @@ function toolbarHtml() {
     ? html`${st.detail}, ${elapsedSpan(st.elapsedFrom)}${st.extra ? html`<span class="st-more">${st.extra}</span>` : ""}`
     : html`${st.detail}${st.extra ? html`<span class="st-more">${st.extra}</span>` : ""}`;
 
+  const navOpen = prefs.navOpen;
+  const inspOpen = prefs.inspOpen;
+  const debugOpen = prefs.debugOpen;
+  const navWord = navOpen ? "Hide" : "Show";
   return html`
     <div class="tb-left">
       ${narrowEditor
-        ? html`<button type="button" class="icon-btn tb-btn tb-back" data-action="narrow-back" title="Back to the navigator" aria-label="Back to the navigator">${icon("chevron.left", "ic-18")}</button>`
-        : html`<button type="button" class="icon-btn tb-btn tb-nav wide-only" data-action="toggle-navigator" aria-pressed="${prefs.navOpen ? "true" : "false"}" title="${prefs.navOpen ? "Hide" : "Show"} Navigator (${keyLabel("mod+shift+0")})" aria-label="${prefs.navOpen ? "Hide" : "Show"} navigator">${icon("sidebar.left", "ic-18")}</button>`}
-      <span class="tb-run">
-        <button type="button" class="icon-btn tb-btn tb-stop" data-action="stop" ${active ? "" : raw("disabled")} title="Stop${active ? ` (${plural(active, "active job")})` : ""} (${keyLabel("mod+.")})" aria-label="Stop">${icon("stop.fill", "ic-18")}</button>
-        <button type="button" class="icon-btn tb-btn tb-play" data-action="run" ${online ? "" : raw("disabled")} title="${runTitle}" aria-label="Run">${icon("play.fill", "ic-18")}</button>
+        ? html`<span class="glass glass-capsule glass-group tb-group solo" data-glass-shape="capsule"><button type="button" class="gbtn gbtn-solo tb-btn tb-back" data-action="narrow-back" title="Back to the navigator" aria-label="Back to the navigator">${icon("chevron.left", "ic-18")}</button></span>`
+        : html`<span class="glass glass-capsule glass-group tb-group solo wide-only" data-glass-shape="capsule"><button type="button" class="gbtn gbtn-solo tb-btn tb-nav" data-action="toggle-navigator" aria-expanded="${navOpen ? "true" : "false"}" aria-controls="navigator" title="${navWord} Navigator (${keyLabel("mod+0")})" aria-label="Navigator">${icon("sidebar.left", "ic-18")}</button></span>`}
+      <span class="glass glass-capsule glass-group tb-group tb-run" data-glass-shape="capsule" role="group" aria-label="Run">
+        <button type="button" class="gbtn tb-btn tb-stop" data-action="stop" ${active ? "" : raw("disabled")} title="Stop${active ? ` (${plural(active, "active job")})` : ""} (${keyLabel("mod+.")})" aria-label="Stop">${icon("stop.fill", "ic-18")}</button>
+        <button type="button" class="gbtn tb-btn tb-play" data-action="run" ${online ? "" : raw("disabled")} title="${runTitle}" aria-label="Run">${icon("play.fill", "ic-18")}</button>
       </span>
     </div>
     <div class="tb-title">
       <button type="button" class="app-menu" data-action="app-menu" aria-haspopup="menu" aria-label="MobileLab menu" title="MobileLab menu">${icon("mark", "ic-18")}<span>MobileLab</span></button>
     </div>
-    <div class="capsule" role="group" aria-label="Scheme, destination and status">
+    <div class="capsule glass glass-capsule glass-white" data-glass-shape="capsule" role="group" aria-label="Scheme, destination and status">
       <button type="button" class="cap-seg cap-scheme" data-action="scheme-menu" aria-haspopup="menu" aria-expanded="false" title="Scheme: ${scheme || "none"}">${icon("mark", "ic-16 ic-mark")}<span>${scheme || "No Scheme"}</span></button>
       <span class="cap-chev">${icon("chevron.right", "ic-10")}</span>
       <button type="button" class="cap-seg cap-dest" data-action="dest-menu" aria-haspopup="menu" aria-expanded="false" title="Destination: ${destinationLabel()}">${icon(destinationIcon(), "ic-14")}<span>${destinationLabel()}</span></button>
@@ -73,8 +77,10 @@ function toolbarHtml() {
       </button>
     </div>
     <div class="tb-right">
-      <button type="button" class="icon-btn" data-action="toggle-debug" aria-pressed="${prefs.debugOpen ? "true" : "false"}" title="${prefs.debugOpen ? "Hide" : "Show"} Debug Area (${keyLabel("mod+shift+y")})" aria-label="${prefs.debugOpen ? "Hide" : "Show"} debug area">${icon("sidebar.bottom", "ic-18")}</button>
-      <button type="button" class="icon-btn" data-action="toggle-inspector" aria-pressed="${prefs.inspOpen ? "true" : "false"}" title="${prefs.inspOpen ? "Hide" : "Show"} Inspector (${keyLabel("mod+alt+0")})" aria-label="${prefs.inspOpen ? "Hide" : "Show"} inspector">${icon("sidebar.right", "ic-18")}</button>
+      <span class="glass glass-capsule glass-group tb-group" data-glass-shape="capsule" role="group" aria-label="Panels">
+        <button type="button" class="gbtn tb-btn tb-debug" data-action="toggle-debug" aria-expanded="${debugOpen ? "true" : "false"}" aria-controls="debug" title="${debugOpen ? "Hide" : "Show"} Debug Area (${keyLabel("mod+shift+y")})" aria-label="Debug area">${icon("sidebar.bottom", "ic-18")}</button>
+        <button type="button" class="gbtn tb-btn tb-insp" data-action="toggle-inspector" aria-expanded="${inspOpen ? "true" : "false"}" aria-controls="inspector" title="${inspOpen ? "Hide" : "Show"} Inspector (${keyLabel("mod+alt+0")})" aria-label="Inspector">${icon("sidebar.right", "ic-18")}</button>
+      </span>
     </div>`;
 }
 

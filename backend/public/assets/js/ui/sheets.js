@@ -7,6 +7,7 @@ import { icon } from "../core/icons.js";
 import { patch } from "../core/morph.js";
 import { api, ApiError, token } from "../core/api.js";
 import { state, prefs, setPref, invalidate, onRender } from "../core/state.js";
+import { glassMode, setGlassMode } from "../core/glass.js";
 import { commands, hooks, saveScheme, deleteScheme, spawnSimulator, runScheme, runCleanup, chooseScheme } from "../core/actions.js";
 import { ensureCatalog, loadDoctor, start } from "../core/sync.js";
 import { schemeConfig, schemeNames, currentScheme, compareVersionsDesc, modelLabel } from "../core/models.js";
@@ -63,11 +64,11 @@ function sheetHtml(sheet) {
   const size = def.size || "md";
   if (def.palette) {
     return html`<div class="scrim scrim-light" data-action="sheet-scrim" data-key="scrim"></div>
-      <div class="sheet sheet-${sheet.name} palette" role="dialog" aria-modal="true" aria-label="${def.title}" tabindex="-1" data-key="sheet-${sheet.name}">${def.render(sheet)}</div>`;
+      <div class="sheet sheet-${sheet.name} palette glass glass-sheet glass-frosted" data-glass-shape="round" data-glass-radius="14" data-glass-frost="16" data-glass-band="10" role="dialog" aria-modal="true" aria-label="${def.title}" tabindex="-1" data-key="sheet-${sheet.name}">${def.render(sheet)}</div>`;
   }
   return html`
     <div class="scrim" data-action="sheet-scrim" data-key="scrim"></div>
-    <div class="sheet sheet-${sheet.name} sheet-${size}" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1" data-key="sheet-${sheet.name}">
+    <div class="sheet sheet-${sheet.name} sheet-${size} glass glass-sheet glass-frosted" data-glass-shape="round" data-glass-radius="14" data-glass-frost="16" data-glass-band="10" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1" data-key="sheet-${sheet.name}">
       <header class="sheet-head">
         <h2 id="sheet-title">${typeof def.title === "function" ? def.title(sheet) : def.title}</h2>
         <button type="button" class="icon-btn icon-btn-sm sheet-x" data-action="sheet-close" aria-label="Close" title="Close (Esc)">${icon("xmark", "ic-14")}</button>
@@ -213,12 +214,20 @@ const PANES = [
 
 const CHECK_ICON = { ok: ["checkmark.circle.fill", "c-pass"], warn: ["exclamationmark.triangle.fill", "c-warn"], fail: ["xmark.circle.fill", "c-fail"], skip: ["minus", "c-dim"] };
 
+function glassLevelText() {
+  const level = glassMode();
+  return level === "refract" ? "with refraction" : level === "blur" ? "blur only: this browser cannot refract" : "off";
+}
+
 function generalPane(sheet) {
   const c = state.caps;
   return html`
     <div class="frow"><span class="flabel">Appearance</span><div class="fctl"><div class="segmented" role="radiogroup" aria-label="Appearance">
       ${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([id, label]) => html`<button type="button" role="radio" aria-checked="${prefs.theme === id ? "true" : "false"}" aria-pressed="${prefs.theme === id ? "true" : "false"}" data-action="theme" data-arg="${id}">${label}</button>`)}
     </div><p class="fhint">System follows your operating system’s appearance.</p></div></div>
+    <div class="frow"><span class="flabel">Liquid Glass</span><div class="fctl"><div class="segmented" role="radiogroup" aria-label="Liquid Glass">
+      ${[["on", "On"], ["reduced", "Reduced"]].map(([id, label]) => html`<button type="button" role="radio" aria-checked="${prefs.glass === id ? "true" : "false"}" aria-pressed="${prefs.glass === id ? "true" : "false"}" data-action="glass-mode" data-arg="${id}">${label}</button>`)}
+    </div><p class="fhint">${prefs.glass === "reduced" ? "Reduced replaces the translucent material with opaque surfaces, like Reduce Transparency on macOS." : `Translucent, refracting controls (${glassLevelText()}). Follows Reduce Transparency and increased contrast automatically.`}</p></div></div>
     <div class="fsep"></div>
     <div class="frow"><span class="flabel">API URL</span><div class="fctl"><code class="fvalue">${location.origin}</code><p class="fhint">The dashboard talks to the backend that served it.</p></div></div>
     <div class="frow"><label class="flabel" for="sf-token">API Token</label><div class="fctl">
@@ -409,6 +418,7 @@ export function initSheets() {
     invalidate("overlay");
   });
   action("theme", ({ el }) => { setPref("theme", el.dataset.arg); applyTheme(); invalidate("overlay"); });
+  action("glass-mode", ({ el }) => { setPref("glass", el.dataset.arg === "reduced" ? "reduced" : "on"); setGlassMode(prefs.glass); invalidate("overlay"); });
   action("reset-layout", () => { setPref("navW", 300); setPref("inspW", 300); setPref("debugH", 240); invalidate("shell"); notify("Panel sizes reset."); });
   action("doctor-run", () => void loadDoctor());
   action("cleanup-run", async () => {

@@ -113,12 +113,12 @@ export function previewHtml(device) {
         </div>
       </div>
       <div class="canvas-bar">
-        <div class="cb-group">
+        <div class="cb-group glass glass-capsule glass-quiet" data-glass-shape="capsule" role="group" aria-label="Device">
           <button type="button" class="cb-btn cb-accent" data-action="${bootable ? "device-boot" : "device-run"}" data-id="${device.id}" ${device.canRunTests || bootable ? "" : raw("disabled")} title="${bootable ? "Boot" : "Run Tests Here"}" aria-label="${bootable ? "Boot" : "Run tests here"}">${icon("play.fill", "ic-14")}</button>
           <button type="button" class="cb-btn" data-action="device-shot" data-id="${device.id}" ${up && !vm ? "" : raw("disabled")} title="Save Screenshot" aria-label="Save screenshot">${icon("camera", "ic-14")}</button>
           <button type="button" class="cb-btn" data-action="shot-refresh" data-id="${device.id}" ${up && !vm ? "" : raw("disabled")} title="Refresh Now" aria-label="Refresh screenshot">${icon("arrow.clockwise", "ic-14")}</button>
         </div>
-        <div class="cb-group">
+        <div class="cb-group glass glass-capsule glass-quiet" data-glass-shape="capsule" role="group" aria-label="Zoom">
           <button type="button" class="cb-btn" data-action="zoom-out" title="Zoom Out" aria-label="Zoom out">${icon("minus.magnifyingglass", "ic-14")}</button>
           <button type="button" class="cb-btn" data-action="zoom-in" title="Zoom In" aria-label="Zoom in">${icon("plus.magnifyingglass", "ic-14")}</button>
           <button type="button" class="cb-btn" data-action="zoom-actual" title="Actual Size" aria-label="Actual size">${icon("equal.magnifyingglass", "ic-14")}</button>

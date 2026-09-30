@@ -1,0 +1,164 @@
+/* Liquid Glass material (docs/design/liquid-glass.md). Our own implementation.
+   Layers, bottom to top: the live backdrop (blurred, saturated and, in Chromium, refracted through an SVG displacement
+   filter that core/glass.js generates), a tint gradient (lighter on top), a specular sheen (::before), a 1px rim light
+   (::after, brighter top-left) and a soft outer shadow. `html[data-glass]` selects the level:
+     refract  backdrop-filter with the SVG displacement filter (Chromium)
+     blur     the same material without refraction (Safari, Firefox, forced): complete and good on its own
+     off      opaque surfaces (Reduced transparency, high contrast, Settings)                                    */
+
+:root {
+  --glass-blur: 10px;
+  --glass-sat: 1.7;
+  --glass-tint-top: light-dark(rgb(243 246 250 / 0.72), rgb(74 78 90 / 0.56));
+  --glass-tint-bottom: light-dark(rgb(222 229 237 / 0.62), rgb(46 48 56 / 0.5));
+  --glass-white-top: light-dark(rgb(255 255 255 / 0.9), rgb(84 88 100 / 0.66));
+  --glass-white-bottom: light-dark(rgb(255 255 255 / 0.72), rgb(58 60 68 / 0.62));
+  --glass-rim-hi: light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.34));
+  --glass-rim-lo: light-dark(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.06));
+  --glass-rim-edge: light-dark(rgb(30 50 80 / 0.10), rgb(0 0 0 / 0.55));
+  --glass-sheen: light-dark(rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.16));
+  --glass-shadow: 0 0.5px 1.5px light-dark(rgb(20 40 70 / 0.14), rgb(0 0 0 / 0.4)), 0 3px 9px -3px light-dark(rgb(20 40 70 / 0.10), rgb(0 0 0 / 0.35));
+  --glass-glow: inset 0 0 6px light-dark(rgb(255 255 255 / 0.45), rgb(255 255 255 / 0.10));
+  --glass-shadow-lift: 0 6px 18px light-dark(rgb(20 40 70 / 0.16), rgb(0 0 0 / 0.5));
+  --glass-solid: light-dark(#eef2f6, #3a3b41);
+  --glass-solid-white: light-dark(#ffffff, #45464d);
+  --glass-hover: light-dark(rgb(30 60 100 / 0.08), rgb(255 255 255 / 0.10));
+  --glass-press: light-dark(rgb(30 60 100 / 0.16), rgb(255 255 255 / 0.18));
+  --glass-on: light-dark(rgb(30 60 100 / 0.09), rgb(255 255 255 / 0.13));
+}
+
+.glass-defs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+
+/* ---------- the material ---------- */
+.glass {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--glass-radius, 14px);
+  background: linear-gradient(180deg, var(--glass-tint-top), var(--glass-tint-bottom));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow: var(--glass-glow), var(--glass-shadow), 0 0 0 0.5px var(--glass-rim-edge);
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+:root[data-glass="refract"]:not([data-glass-busy]) .glass {
+  -webkit-backdrop-filter: blur(var(--glass-blur)) var(--glass-filter, ) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) var(--glass-filter, ) saturate(var(--glass-sat));
+}
+/* the custom properties live in the element's CSSOM style (JS, see core/glass.js): --glass-filter is the SVG
+   filter of its size class, and --glass-blur is 0px when the filter blurs the interior itself (frost) */
+/* Chromium applies the filter list left to right: with refraction the blur is small and the tint lighter, so the
+   bending stays visible. */
+:root[data-glass="refract"] .glass { --glass-blur: 2px; --glass-tint-top: light-dark(rgb(243 246 250 / 0.56), rgb(74 78 90 / 0.42)); --glass-tint-bottom: light-dark(rgb(228 234 241 / 0.4), rgb(46 48 56 / 0.36)); }
+:root[data-glass="refract"] .glass.glass-frosted { --glass-blur: 14px; }
+
+.glass-capsule { --glass-radius: 999px; border-radius: 999px; }
+.glass-circle { --glass-radius: 50%; border-radius: 50%; }
+.glass-white {
+  background: linear-gradient(180deg, var(--glass-white-top), var(--glass-white-bottom));
+}
+.glass-frosted { --glass-blur: 22px; }
+.glass-lift { box-shadow: var(--glass-shadow-lift), 0 0 0 0.5px var(--glass-rim-edge); }
+.glass-flat { box-shadow: 0 0 0 0.5px var(--glass-rim-edge); }
+
+/* text-heavy surfaces: menus, popovers, sheets, toasts. More tint, more blur, so contrast holds over any backdrop. */
+:root[data-glass] .glass.glass-menu {
+  --glass-blur: 24px;
+  --glass-tint-top: light-dark(rgb(252 253 255 / 0.88), rgb(58 60 68 / 0.86));
+  --glass-tint-bottom: light-dark(rgb(246 248 251 / 0.84), rgb(48 50 58 / 0.82));
+  box-shadow: var(--menu-shadow), 0 0 0 0.5px var(--menu-border);
+}
+:root[data-glass] .glass.glass-sheet {
+  --glass-blur: 28px;
+  --glass-tint-top: light-dark(rgb(250 251 253 / 0.9), rgb(54 56 64 / 0.88));
+  --glass-tint-bottom: light-dark(rgb(244 246 250 / 0.86), rgb(46 48 56 / 0.84));
+  box-shadow: 0 18px 60px rgb(0 0 0 / 34%), 0 0 0 0.5px var(--menu-border);
+}
+/* controls that should read as part of the page (jump bar, canvas bar): almost clear, rim only */
+:root[data-glass] .glass.glass-quiet {
+  --glass-tint-top: light-dark(rgb(246 248 251 / 0.34), rgb(255 255 255 / 0.06));
+  --glass-tint-bottom: light-dark(rgb(236 240 245 / 0.22), rgb(255 255 255 / 0.03));
+  box-shadow: 0 0 0 0.5px light-dark(rgb(30 50 80 / 0.07), rgb(255 255 255 / 0.08));
+}
+:root[data-glass] .glass.glass-quiet::before { opacity: 0.3; }
+:root[data-glass] .glass.glass-quiet::after { opacity: 0.55; }
+/* tab bars (navigator, inspector): a flat grey pill, like Xcode's */
+:root[data-glass] .glass.glass-tabs {
+  --glass-tint-top: light-dark(rgb(216 224 233 / 0.62), rgb(255 255 255 / 0.11));
+  --glass-tint-bottom: light-dark(rgb(208 217 228 / 0.56), rgb(255 255 255 / 0.08));
+  box-shadow: 0 0 0 0.5px light-dark(rgb(30 50 80 / 0.06), rgb(255 255 255 / 0.08)), inset 0 0.5px 1px light-dark(rgb(30 50 80 / 0.08), rgb(0 0 0 / 0.25));
+}
+:root[data-glass] .glass.glass-tabs::before { opacity: 0.35; }
+:root[data-glass] .glass.glass-tabs::after { opacity: 0.5; }
+:root[data-glass="off"] .glass.glass-tabs { background: var(--field); }
+/* text fields in a glass pill (filter bars): a grey inset, like Xcode's filter field */
+:root[data-glass] .glass.glass-field {
+  --glass-tint-top: light-dark(rgb(232 235 239 / 0.78), rgb(255 255 255 / 0.1));
+  --glass-tint-bottom: light-dark(rgb(238 240 244 / 0.7), rgb(255 255 255 / 0.07));
+  box-shadow: 0 0 0 0.5px light-dark(rgb(30 50 80 / 0.12), rgb(255 255 255 / 0.1)), inset 0 0.5px 1px light-dark(rgb(30 50 80 / 0.08), rgb(0 0 0 / 0.3));
+}
+:root[data-glass="off"] .glass.glass-quiet { background: transparent; box-shadow: 0 0 0 0.5px var(--input-border); }
+
+/* specular sheen: a soft highlight hugging the top edge */
+.glass::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 18% -20%, var(--glass-sheen), transparent 60%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.10), transparent 40%);
+  opacity: 0.85;
+}
+/* rim light: 1px inner stroke, bright at the top left, dim at the bottom right, bright again at the far corner */
+.glass::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; padding: 1px;
+  background: linear-gradient(160deg, var(--glass-rim-hi) 0%, var(--glass-rim-lo) 42%, var(--glass-rim-lo) 68%, color-mix(in srgb, var(--glass-rim-hi) 55%, transparent) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+
+/* pressed / disabled */
+.glass:active:not([aria-disabled="true"]):not(:disabled) { --glass-tint-top: light-dark(rgb(226 232 240 / 0.7), rgb(92 96 108 / 0.62)); }
+.glass:has(> :disabled), .glass[aria-disabled="true"] { opacity: 0.9; }
+.glass:disabled, .glass[aria-disabled="true"] { box-shadow: none; }
+.glass:disabled::after, .glass[aria-disabled="true"]::after { opacity: 0.4; }
+
+/* ---------- glass groups: one glass shape holding several buttons (Xcode 26 toolbar) ---------- */
+.glass-group { display: inline-flex; align-items: center; gap: 0; padding: 2px; flex: none; }
+.glass-group > .gbtn + .gbtn::before {
+  content: ""; position: absolute; left: -0.5px; top: 6px; bottom: 6px; width: 1px; background: var(--divider); opacity: 0.9;
+}
+.gbtn {
+  position: relative; display: inline-grid; place-items: center; width: 32px; height: 26px; border-radius: 13px; flex: none;
+  color: var(--text); background: transparent; transition: background-color 0.1s ease;
+}
+.gbtn .ic { width: 17px; height: 17px; }
+.gbtn:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--glass-hover); }
+.gbtn:active:not(:disabled):not([aria-disabled="true"]) { background: var(--glass-press); transform: scale(0.96); }
+.gbtn:disabled, .gbtn[aria-disabled="true"] { color: var(--text-tertiary); }
+.gbtn[aria-pressed="true"], .gbtn[aria-expanded="true"] { background: var(--glass-on); }
+.gbtn.gbtn-solo { border-radius: 13px; width: 28px; height: 26px; }
+
+/* ---------- fallback levels ---------- */
+:root[data-glass="off"] .glass,
+:root[data-glass="off"] .glass-white {
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: 0 0 0 0.5px var(--input-border), 0 0.5px 2px rgb(0 0 0 / 0.08);
+}
+:root[data-glass="off"] .glass-white { background: var(--glass-solid-white); }
+:root[data-glass="off"] .glass::before, :root[data-glass="off"] .glass::after { display: none; }
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: var(--glass-solid); }
+  .glass-white { background: var(--glass-solid-white); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root[data-glass] .glass, :root[data-glass] .glass-white {
+    background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: 0 0 0 1px var(--input-border);
+  }
+  :root[data-glass] .glass-white { background: var(--glass-solid-white); }
+  :root[data-glass] .glass::before, :root[data-glass] .glass::after { display: none; }
+}
+
+/* no glass while the window resizes its panels (divider drag): plain blur only */
+:root[data-glass-busy] .glass { --glass-blur: 8px; }

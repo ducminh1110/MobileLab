@@ -13,6 +13,8 @@ import { copyText, plural } from "./util.js";
 export const regions = new Map();
 export const hooks = {
   sheet: (_name, _props) => {},
+  panelClosing: (_name) => {},
+  panelOpened: (_name) => {},
   focusRegion: (name) => regions.get(name)?.()
 };
 
@@ -302,7 +304,9 @@ export async function copy(text, what = "Copied") {
 
 // ---------------------------------------------------------------- panels
 
-export function togglePanel(name, open) {
+/** Shows or hides a panel. `focus: true` (keyboard shortcuts) moves focus into the panel when it opens; when a panel
+ *  collapses while it holds focus, focus moves to the editor first (see ui/shell.js). */
+export function togglePanel(name, open, { focus = false } = {}) {
   if (state.ui.narrow && name !== "navigator") {
     state.ui.narrowSheet = open === false || state.ui.narrowSheet === name ? null : name;
     invalidate("shell", "toolbar", "debug", "inspector");
@@ -310,8 +314,10 @@ export function togglePanel(name, open) {
   }
   const key = { navigator: "navOpen", inspector: "inspOpen", debug: "debugOpen" }[name];
   const next = open === undefined ? !prefs[key] : open;
+  if (!next) hooks.panelClosing?.(name);
   setPref(key, next);
   invalidate("shell", "nav", "editor", "inspector", "debug", "toolbar", "jump");
+  if (next && focus) hooks.panelOpened?.(name);
 }
 
 export function showNavigator(tab) {
@@ -346,16 +352,16 @@ export const commands = [
   { id: "new-simulator", title: "New Simulator…", group: "File", keys: "mod+alt+n", run: () => hooks.sheet("simulator") },
   { id: "new-scheme", title: "New Scheme…", group: "Product", run: () => hooks.sheet("scheme", { isNew: true }) },
   { id: "edit-scheme", title: "Edit Scheme…", group: "Product", run: () => hooks.sheet("scheme", {}), enabled: () => !!currentScheme() },
-  { id: "toggle-navigator", title: "Show / Hide Navigator", group: "View", keys: "mod+shift+0", run: () => togglePanel("navigator") },
-  { id: "toggle-inspector", title: "Show / Hide Inspector", group: "View", keys: "mod+alt+0", run: () => togglePanel("inspector") },
-  { id: "toggle-debug", title: "Show / Hide Debug Area", group: "View", keys: "mod+shift+y", run: () => togglePanel("debug") },
+  { id: "toggle-navigator", title: "Show / Hide Navigator", group: "View", keys: "mod+0", also: ["mod+shift+0"], run: () => togglePanel("navigator", undefined, { focus: true }) },
+  { id: "toggle-inspector", title: "Show / Hide Inspector", group: "View", keys: "mod+alt+0", run: () => togglePanel("inspector", undefined, { focus: true }) },
+  { id: "toggle-debug", title: "Show / Hide Debug Area", group: "View", keys: "mod+shift+y", run: () => togglePanel("debug", undefined, { focus: true }) },
   ...NAV_TABS.map((t) => ({
     id: `nav-${t.id}`, title: `Show ${t.label} Navigator`, group: "Navigate", keys: `mod+shift+${t.key}`, run: () => showNavigator(t.id)
   })),
   { id: "open-quickly", title: "Open Quickly…", group: "Navigate", keys: "mod+shift+o", run: () => hooks.sheet("quick") },
   { id: "find-navigator", title: "Find in Navigator", group: "Navigate", keys: "mod+shift+f", run: () => { showNavigator("find"); hooks.focusRegion("filter"); } },
-  { id: "back", title: "Go Back", group: "Navigate", run: () => historyGo(-1), enabled: () => canGoBack() },
-  { id: "forward", title: "Go Forward", group: "Navigate", run: () => historyGo(1), enabled: () => canGoForward() },
+  { id: "back", title: "Go Back", group: "Navigate", keys: "mod+alt+left", run: () => historyGo(-1), enabled: () => canGoBack() },
+  { id: "forward", title: "Go Forward", group: "Navigate", keys: "mod+alt+right", run: () => historyGo(1), enabled: () => canGoForward() },
   { id: "clear-console", title: "Clear Console", group: "Debug", keys: "mod+k", run: () => hooks.focusRegion("clear-console") },
   { id: "settings", title: "Settings…", group: "MobileLab", keys: "mod+,", run: () => hooks.sheet("settings", {}) },
   { id: "diagnostics", title: "Run Diagnostics…", group: "MobileLab", run: () => { hooks.sheet("settings", { pane: "environment" }); void loadDoctor(); } },
@@ -372,26 +378,29 @@ export function commandForEvent(event, typing) {
   const code = event.code || "";
   const key = event.key || "";
   for (const cmd of commands) {
-    if (!cmd.keys) continue;
-    const parts = cmd.keys.split("+");
-    const want = { mod: parts.includes("mod"), alt: parts.includes("alt"), shift: parts.includes("shift") };
-    const k = parts[parts.length - 1];
-    if (k === "?") {
-      if (typing || mod || event.altKey) continue;
-      if (key === "?") return cmd;
-      continue;
+    for (const combo of [cmd.keys, ...(cmd.also || [])]) {
+      if (!combo) continue;
+      const parts = combo.split("+");
+      const want = { mod: parts.includes("mod"), alt: parts.includes("alt"), shift: parts.includes("shift") };
+      const k = parts[parts.length - 1];
+      if (k === "?") {
+        if (typing || mod || event.altKey) continue;
+        if (key === "?") return cmd;
+        continue;
+      }
+      if (want.mod !== mod || want.alt !== event.altKey || want.shift !== event.shiftKey) continue;
+      if (!mod && !want.alt) continue;
+      const match =
+        k === "enter" ? key === "Enter"
+        : k === "left" ? key === "ArrowLeft"
+        : k === "right" ? key === "ArrowRight"
+        : k === "." ? code === "Period" || key === "."
+        : k === "," ? code === "Comma" || key === ","
+        : /^\d$/.test(k) ? code === `Digit${k}` || code === `Numpad${k}`
+        : /^[a-z]$/.test(k) ? code === `Key${k.toUpperCase()}` || key.toLowerCase() === k
+        : false;
+      if (match) return cmd;
     }
-    if (want.mod !== mod || want.alt !== event.altKey || want.shift !== event.shiftKey) continue;
-    if (!mod && !want.alt) continue;
-    const match =
-      k === "enter" ? key === "Enter"
-      : k === "." ? code === "Period" || key === "."
-      : k === "," ? code === "Comma" || key === ","
-      : /^\d$/.test(k) ? code === `Digit${k}` || code === `Numpad${k}`
-      : /^[a-z]$/.test(k) ? code === `Key${k.toUpperCase()}` || key.toLowerCase() === k
-      : false;
-    if (match) return cmd;
   }
   return null;
 }
-

@@ -1,17 +1,19 @@
 /* Jump bar and the editor types: Welcome and the simulator canvas. */
 
 .jumpbar {
-  display: flex; align-items: center; gap: 1px; height: 28px; padding: 0 8px 0 10px; min-width: 0; overflow: hidden;
+  display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 6px; min-width: 0; overflow: hidden;
   background: var(--editor); box-shadow: inset 0 -0.5px 0 var(--divider);
   font-size: 11.5px; line-height: 16px; color: var(--text-secondary);
 }
+.jb-group, .jb-right { display: inline-flex; align-items: center; flex: none; height: 24px; padding: 0 1px; }
 .jb-btn {
-  display: grid; place-items: center; width: 24px; height: 22px; border-radius: 5px; flex: none; color: var(--text-tertiary);
+  display: grid; place-items: center; width: 26px; height: 22px; border-radius: 11px; flex: none; color: var(--text-tertiary);
+  transition: background-color 0.1s ease;
 }
-.jb-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.jb-btn:hover:not(:disabled) { background: var(--glass-hover); color: var(--text); }
+.jb-btn:active:not(:disabled) { background: var(--glass-press); }
 .jb-btn:disabled { opacity: 0.45; }
-.jb-sep { width: 1px; height: 14px; margin: 0 5px; background: var(--divider); flex: none; }
-.crumbs { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; overflow: hidden; margin-left: 6px; }
+.crumbs { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; overflow: hidden; margin-left: 2px; }
 .crumb {
   display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 4px; border-radius: 5px; flex: 0 1 auto; min-width: 0;
   color: color-mix(in srgb, var(--text) 82%, transparent); white-space: nowrap;
@@ -20,7 +22,7 @@
 .crumb:hover, .crumb[aria-expanded="true"] { background: var(--hover); }
 .crumb.last { flex-shrink: 0; }
 .crumb-sep { display: inline-grid; place-items: center; flex: none; color: var(--text-tertiary); width: 12px; }
-.jb-right { display: flex; align-items: center; margin-left: auto; padding-left: 8px; flex: none; }
+.jb-right { margin-left: auto; }
 
 .editor { position: relative; min-height: 0; min-width: 0; overflow: hidden; background: var(--editor); }
 .editor:focus-visible { outline: none; }
@@ -103,13 +105,14 @@
 .scr-msg .btn { margin-top: 6px; }
 .scr-msg .err-inline { color: #ff6a60; }
 .canvas-bar {
-  display: flex; align-items: center; justify-content: space-between; flex: none; height: 36px; padding: 0 10px;
+  display: flex; align-items: center; justify-content: space-between; flex: none; height: 44px; padding: 0 10px;
   background: var(--editor); box-shadow: inset 0 0.5px 0 var(--divider); gap: 12px;
 }
-.cb-group { display: flex; align-items: center; gap: 2px; }
-.cb-btn { display: grid; place-items: center; width: 26px; height: 24px; border-radius: 6px; color: var(--text-secondary); }
-.cb-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.cb-group { display: flex; align-items: center; gap: 0; height: 30px; padding: 0 2px; }
+.cb-btn { display: grid; place-items: center; width: 30px; height: 26px; border-radius: 13px; color: var(--text-secondary); transition: background-color 0.1s ease; }
+.cb-btn:hover:not(:disabled) { background: var(--glass-hover); color: var(--text); }
+.cb-btn:active:not(:disabled) { background: var(--glass-press); }
 .cb-btn:disabled { opacity: 0.4; }
-.cb-btn[aria-pressed="true"] { color: var(--accent); }
+.cb-btn[aria-pressed="true"] { color: var(--accent); background: var(--glass-on); }
 .cb-accent { color: var(--accent); }
 .cb-zoom { min-width: 40px; text-align: right; font-size: 11.5px; color: var(--text-secondary); padding-left: 6px; }

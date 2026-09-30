@@ -2,11 +2,11 @@
 // with P / F / S badges) on the left and the green console on the right. The console shows the live output and
 // events of the selected job, or the global activity log when nothing is selected. Windowed like the log editor.
 
-import { html, raw, esc, fmtSeconds, fmtTimeSec, fmtClock } from "../core/util.js";
+import { html, raw, esc, keyLabel, fmtSeconds, fmtTimeSec, fmtClock } from "../core/util.js";
 import { icon } from "../core/icons.js";
 import { patch } from "../core/morph.js";
 import { state, prefs, setPref, invalidate, onRender, deviceById, jobById, runById, isActive, isExpanded } from "../core/state.js";
-import { suitesOf, jobStatus, jobTitle, runName, RUN_STATUS, deviceState } from "../core/models.js";
+import { capsuleStatus, suitesOf, jobStatus, jobTitle, runName, RUN_STATUS, deviceState } from "../core/models.js";
 import { resultsOf, ensureResults, loadHistory } from "../core/sync.js";
 import { acquireLog, releaseLog } from "../core/logstore.js";
 import { cancelJob, rerunJob, retryFailed, screenshotDevice, regions } from "../core/actions.js";
@@ -333,7 +333,21 @@ function barCrumbs() {
   return [{ icon: mark, label: "MobileLab" }, { icon: icon("bolt.horizontal", "ic-14"), label: "Backend" }, { icon: "", label: online ? "Connected" : state.conn === "offline" ? "Disconnected" : "Connecting…" }];
 }
 
+function collapsedBar() {
+  const st = capsuleStatus();
+  const label = "Show debug area";
+  const keys = keyLabel("mod+shift+y");
+  return html`<div class="debug-bar debug-bar-collapsed" role="toolbar" aria-label="Debug bar">
+    <button type="button" class="db-btn db-hide" data-action="toggle-debug" aria-expanded="false" aria-controls="debug-panes" title="Show Debug Area (${keys})" aria-label="${label}">${icon("breakpoint.fill", "ic-18")}</button>
+    <span class="db-status"><strong>${st.label}</strong>${st.detail ? html` <span class="db-status-detail">| ${st.detail}</span>` : ""}</span>
+    <span class="db-right">
+      <button type="button" class="db-btn db-panel" data-action="toggle-debug" aria-expanded="false" aria-controls="debug-panes" title="Show Debug Area (${keys})" aria-label="${label}">${icon("sidebar.bottom", "ic-16")}</button>
+    </span>
+  </div>`;
+}
+
 function debugBar() {
+  if (!prefs.debugOpen && !state.ui.narrow) return collapsedBar();
   const sel = state.sel;
   const job = sel.kind === "job" ? jobById(sel.id) : null;
   const dev = sel.kind === "device" ? deviceById(sel.id) : job?.assignedDeviceId ? deviceById(job.assignedDeviceId) : null;
@@ -341,7 +355,7 @@ function debugBar() {
   const failed = !!job && job.status === "failed" && !!job.summary && job.summary.failed > 0;
   const up = !!dev && (dev.status === "ready" || dev.status === "busy") && dev.type === "simulator";
   return html`<div class="debug-bar" role="toolbar" aria-label="Debug bar">
-    <button type="button" class="db-btn db-hide" data-action="toggle-debug" title="Hide Debug Area" aria-label="Hide debug area">${icon("breakpoint.fill", "ic-18")}</button>
+    <button type="button" class="db-btn db-hide" data-action="toggle-debug" aria-expanded="true" aria-controls="debug-panes" title="Hide Debug Area (${keyLabel("mod+shift+y")})" aria-label="Hide debug area">${icon("breakpoint.fill", "ic-18")}</button>
     <span class="db-sep"></span>
     <button type="button" class="db-btn" data-action="db-rerun" ${job && !isActive(job) ? "" : raw("disabled")} title="Run Again" aria-label="Run again">${icon("play", "ic-16")}</button>
     <button type="button" class="db-btn" data-action="db-stop" ${job && isActive(job) ? "" : raw("disabled")} title="Cancel this job" aria-label="Cancel job">${icon("stop.fill", "ic-16")}</button>
@@ -351,7 +365,7 @@ function debugBar() {
     <nav class="db-crumbs" aria-label="Debug path">${crumbs.map((c, i) => html`${i ? html`<span class="crumb-sep">${icon("chevron.right", "ic-10")}</span>` : ""}<span class="db-crumb">${c.icon}<span>${c.label}</span></span>`)}</nav>
     <span class="db-right">
       ${job ? html`<span class="db-attempt">Attempt ${Math.max(job.attempts, 1)} of ${job.maxRetries + 1}</span>` : ""}
-      <button type="button" class="db-btn db-panel" data-action="toggle-debug" aria-pressed="true" title="Hide Debug Area" aria-label="Hide debug area">${icon("sidebar.bottom", "ic-16")}</button>
+      <button type="button" class="db-btn db-panel" data-action="toggle-debug" aria-expanded="true" aria-controls="debug-panes" title="Hide Debug Area (${keyLabel("mod+shift+y")})" aria-label="Hide debug area">${icon("sidebar.bottom", "ic-16")}</button>
       <button type="button" class="db-btn db-close" data-action="close-sheet" title="Close" aria-label="Close debug area">${icon("xmark", "ic-14")}</button>
     </span>
   </div>`;
@@ -412,6 +426,7 @@ function renderDebug() {
   if (!built) build(root);
   const panes = document.getElementById("debug-panes");
   panes.dataset.layout = prefs.debugLayout;
+  panes.toggleAttribute("inert", !prefs.debugOpen && !state.ui.narrow);
   patch(document.getElementById("debug-bar"), debugBar());
   const vars = variablesView();
   patch(document.getElementById("vars-body"), vars.html);

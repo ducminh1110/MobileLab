@@ -4,7 +4,7 @@
 
 import { html, raw, esc } from "../core/util.js";
 import { icon } from "../core/icons.js";
-import { state, sameSel, setExpanded, invalidate } from "../core/state.js";
+import { state, sameSel, setExpanded, invalidate, flushNow } from "../core/state.js";
 
 /**
  * Row spec: { nav, key, level, expandable, expanded, sel:{kind,id}, open:{kind,id,tab,caseName,line}, icon, label,
@@ -18,12 +18,13 @@ export function rowHtml(row, tabStop) {
     for (const [k, v] of Object.entries(row.open)) if (v !== undefined && v !== null) attrs.push(`data-${k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())}="${esc(v)}"`);
   }
   if (row.ctx) attrs.push(`data-ctx="${row.ctx}"`);
+  else if (row.expandable) attrs.push('data-ctx="group"');
   if (row.disabled) attrs.push('aria-disabled="true"');
   return html`<div class="row lvl-${row.level}${row.cls ? " " + row.cls : ""}${row.dim ? " dim" : ""}" role="treeitem" aria-level="${row.level + 1}"
       aria-selected="${selected ? "true" : "false"}" data-key="${row.nav}:${row.key}" data-row-key="${row.key}" data-nav="${row.nav}"
       data-action="row" data-native-keys ${row.expandable ? raw('data-expandable="1"') : ""} ${raw(attrs.join(" "))}
       tabindex="${tabStop ? 0 : -1}"${row.title ? html` title="${row.title}"` : ""}>
-      <span class="disc${row.expandable ? "" : " none"}" ${row.expandable ? raw('data-action="row-toggle"') : ""}>${row.expandable ? icon(row.expanded ? "chevron.down" : "chevron.right", "ic-10") : ""}</span>
+      <span class="disc${row.expandable ? "" : " none"}" ${row.expandable ? raw('data-action="row-toggle"') : ""}>${row.expandable ? icon("chevron.right", "ic-10") : ""}</span>
       ${row.icon ? html`<span class="row-icon">${row.icon}</span>` : ""}
       <span class="row-label">${row.label}</span>${row.secondary ? html`<span class="row-secondary">${row.secondary}</span>` : ""}
       ${row.trailing ? html`<span class="row-trail">${row.trailing}</span>` : ""}
@@ -44,6 +45,37 @@ export function treeHtml(rows, { nav, label }) {
 export function toggleRow(nav, key, open) {
   setExpanded(nav, key, open);
   invalidate(nav === "vars" ? "debug" : "nav");
+}
+
+/** Collapse All / Expand All for one navigator's tree (the context action on groups). Expand All repeats until no
+ *  collapsed group is left, because expanding a group renders the groups inside it. */
+export function collapseAll(nav) {
+  for (const row of document.querySelectorAll(`[role="treeitem"][data-nav="${nav}"][aria-expanded="true"]`)) setExpanded(nav, row.dataset.rowKey, false);
+  invalidate(nav === "vars" ? "debug" : "nav");
+}
+
+export function expandAll(nav) {
+  for (let pass = 0; pass < 8; pass += 1) {
+    const closed = Array.from(document.querySelectorAll(`[role="treeitem"][data-nav="${nav}"][aria-expanded="false"]`));
+    if (!closed.length) break;
+    for (const row of closed) setExpanded(nav, row.dataset.rowKey, true);
+    invalidate(nav === "vars" ? "debug" : "nav");
+    flushNow();
+  }
+}
+
+/** Menu items every tree row offers on top of its own: Expand / Collapse this group, Expand All, Collapse All. */
+export function treeMenuItems(el) {
+  const tree = el.closest?.('[role="tree"]');
+  if (!tree || !tree.querySelector("[aria-expanded]")) return [];
+  const nav = el.dataset.nav;
+  const items = [];
+  if (el.hasAttribute("aria-expanded")) {
+    const open = el.getAttribute("aria-expanded") === "true";
+    items.push({ label: open ? "Collapse" : "Expand", icon: open ? "chevron.up" : "chevron.down", run: () => toggleRow(nav, el.dataset.rowKey, !open) });
+  }
+  items.push({ label: "Expand All", run: () => expandAll(nav) }, { label: "Collapse All", run: () => collapseAll(nav) });
+  return items;
 }
 
 // ---------------------------------------------------------------- keyboard

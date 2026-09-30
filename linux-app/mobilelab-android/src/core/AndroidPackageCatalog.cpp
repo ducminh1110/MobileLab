@@ -19,10 +19,11 @@ QVector<AndroidPackage> AndroidPackageCatalog::systemImages() const{
             QDir abi(api.filePath(tag));
             for(const auto &img:abi.entryList(QDir::Dirs|QDir::NoDotAndDotDot)){
                 AndroidPackage p;
-                p.api=apiDir;
+                const QString level=apiDir.startsWith("android-")?apiDir.mid(8):apiDir;
+                p.api=level;
                 p.abi=img;
-                p.id="system-images;android-"+apiDir+";"+tag+";"+img;
-                p.displayName="Android "+apiDir+" · "+tag+" · "+img;
+                p.id="system-images;"+apiDir+";"+tag+";"+img;
+                p.displayName="Android "+level+" - "+tag+" - "+img;
                 p.installed=true;
                 out.push_back(p);
             }

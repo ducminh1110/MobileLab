@@ -35,8 +35,8 @@ svg { display: block; }
 :focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
   outline-offset: -1px;
-  border-radius: 4px;
 }
+.gbtn:focus-visible, .jb-btn:focus-visible, .cb-btn:focus-visible { outline-offset: 0; }
 
 /* thin overlay-style scrollbars */
 * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text) 24%, transparent) transparent; }
@@ -70,8 +70,6 @@ svg { display: block; }
 .ic-32 { width: 32px; height: 32px; }
 .ic-48 { width: 48px; height: 48px; }
 .i-folder { fill: var(--folder); stroke: var(--folder); }
-.i-mark-bg { fill: var(--accent); stroke: none; }
-.i-mark-fg { fill: none; stroke: #fff; }
 .i-knock { fill: none; stroke: #fff; }
 
 .c-pass { color: var(--pass); }
