@@ -152,6 +152,8 @@ jobs:
   publish:
     name: Publish GitHub Release
     needs: [build-and-release, package-linux]
+    # The Linux build is enough to publish; the macOS assets are added when that job succeeds.
+    if: ${{ !cancelled() && needs.package-linux.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -179,10 +181,7 @@ jobs:
           tag_name: ${{ steps.release_tag.outputs.tag }}
           name: ${{ steps.release_tag.outputs.name }}
           files: |
-            release-assets/IOSLabDashboard.app.zip
-            release-assets/ioslab-backend.zip
-            release-assets/ioslab-cli.zip
-            release-assets/MobileLab-linux-x86_64.tar.gz
+            release-assets/*
           draft: false
           prerelease: false
         env:
