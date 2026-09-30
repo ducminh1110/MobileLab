@@ -35,7 +35,7 @@
 #include "UiUtil.h"
 #include "glass/Glass.h"
 
-// A short-lived glass pill at the bottom of the window ("Screenshot saved", failures of actions).
+// A short-lived glass pill above the editor status strip ("Screenshot saved", failures of actions).
 class Toast : public GlassPanel {
 public:
     explicit Toast(QWidget *parent) : GlassPanel(parent, Glass::Kind::Sheet) {
@@ -61,9 +61,11 @@ public:
         update();
         m_timer.start(error ? 5200 : 3200);
     }
+    /// Centred, above the editor status strip and the log's "Jump to End" pill (which a toast at the very bottom
+    /// used to cover) and clear of the toolbar and jump bar at the top.
     void reposition() {
         if (!parentWidget()) return;
-        move((parentWidget()->width() - width()) / 2, parentWidget()->height() - height() - 22);
+        move((parentWidget()->width() - width()) / 2, parentWidget()->height() - height() - 104);
     }
     void paintContent(QPainter &p, const QRect &shape) override {
         Icons::paint(&p, m_error ? "exclamationmark.triangle" : "checkmark.diamond.fill", QRectF(shape.left() + 12, shape.center().y() - 8, 16, 16), m_error ? tk().warn : tk().pass);
