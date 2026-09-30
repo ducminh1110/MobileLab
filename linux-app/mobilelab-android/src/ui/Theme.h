@@ -15,7 +15,7 @@ struct Tokens {
     QColor lineCurrent, lineError, pass, fail, warn, running, breakpoint;
     QColor synComment, synKeyword, synString, synNumber, synType, synIdentifier, synError;
     // Window chrome (tinted background behind the floating panels) and shadows.
-    QColor windowTop, windowBottom, blobA, blobB, panelBorder, shadow;
+    QColor windowTop, windowMid, windowBottom, blobA, blobB, panelBorder, shadow;
     // Liquid glass material.
     QColor glassTintTop, glassTintBottom, glassRimLight, glassRimDark, glassSheen, glassOpaque, glassHover, glassPressed;
 };

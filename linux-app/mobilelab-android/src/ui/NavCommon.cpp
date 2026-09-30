@@ -465,7 +465,7 @@ void NavTree::paintEvent(QPaintEvent *e) {
 
 // --- NavTabBar ----------------------------------------------------------------------------------------
 
-NavTabBar::NavTabBar(QWidget *parent) : GlassPanel(parent, Glass::Kind::Field) {
+NavTabBar::NavTabBar(QWidget *parent) : GlassPanel(parent, Glass::Kind::Tabs) {
     setShape(Shape::Capsule);
     setShadowMargin(3);
     setObjectName("navtabs");

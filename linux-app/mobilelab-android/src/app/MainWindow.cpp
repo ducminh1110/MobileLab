@@ -12,6 +12,7 @@
 #include <QPainter>
 #include <QProcess>
 #include <QRadialGradient>
+#include <cmath>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QThread>
@@ -187,19 +188,15 @@ void MainWindow::connectCore() {
 void MainWindow::paintEvent(QPaintEvent *) {
     const Tokens &t = tk();
     QPainter p(this);
-    QLinearGradient g(0, 0, 0, height());
+    // Same soft 155deg three-stop tint as the web dashboard (no coloured blobs): the glass only needs a calm backdrop.
+    const qreal rad = 155.0 * M_PI / 180.0, dx = std::sin(rad), dy = -std::cos(rad);
+    const qreal len = std::abs(width() * dx) + std::abs(height() * dy);
+    const QPointF c(width() / 2.0, height() / 2.0), d(dx * len / 2, dy * len / 2);
+    QLinearGradient g(c - d, c + d);
     g.setColorAt(0, t.windowTop);
+    g.setColorAt(0.48, t.windowMid);
     g.setColorAt(1, t.windowBottom);
     p.fillRect(rect(), g);
-    // soft coloured light behind the panels: something for the glass to refract
-    QRadialGradient a(width() * 0.18, -height() * 0.05, width() * 0.6);
-    a.setColorAt(0, t.blobA);
-    a.setColorAt(1, Qt::transparent);
-    p.fillRect(rect(), a);
-    QRadialGradient b(width() * 0.92, height() * 1.02, width() * 0.5);
-    b.setColorAt(0, t.blobB);
-    b.setColorAt(1, Qt::transparent);
-    p.fillRect(rect(), b);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *e) {
@@ -479,7 +476,6 @@ void MainWindow::createUi() {
     v->addWidget(m_toolbar);
     m_panes = new PaneHost(PaneHost::Orientation::Horizontal, central);
     m_panes->setFloating(true, 8, 8);
-    m_panes->setTopMargin(0);
     v->addWidget(m_panes, 1);
 
     // navigator

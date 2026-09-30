@@ -40,12 +40,12 @@ Tokens Theme::tokens(bool dark) {
         k.warn = c("#ff9f0a"); k.breakpoint = c("#097dfe");
         k.synComment = c("#5d6c79"); k.synKeyword = c("#ad3da4"); k.synString = c("#d12f1b"); k.synNumber = c("#272ad8");
         k.synType = c("#703daa"); k.synIdentifier = c("#326d74"); k.synError = c("#ff3b30");
-        k.windowTop = c("#eef4fb"); k.windowBottom = c("#e2eaf4");
-        k.blobA = a(110, 175, 255, 0.24); k.blobB = a(170, 150, 255, 0.13);
+        k.windowTop = c("#d5e6f8"); k.windowMid = c("#e6eef8"); k.windowBottom = c("#d9e3f2");
+        k.blobA = a(110, 175, 255, 0.0); k.blobB = a(170, 150, 255, 0.0);
         k.panelBorder = a(0, 0, 0, 0.07); k.shadow = a(20, 30, 60, 0.20);
-        k.glassTintTop = a(255, 255, 255, 0.50); k.glassTintBottom = a(255, 255, 255, 0.30);
-        k.glassRimLight = a(255, 255, 255, 0.95); k.glassRimDark = a(0, 0, 0, 0.14);
-        k.glassSheen = a(255, 255, 255, 0.55); k.glassOpaque = c("#ffffff");
+        k.glassTintTop = a(243, 246, 250, 0.56); k.glassTintBottom = a(228, 234, 241, 0.40);
+        k.glassRimLight = a(255, 255, 255, 0.65); k.glassRimDark = a(30, 50, 80, 0.10);
+        k.glassSheen = a(255, 255, 255, 0.30); k.glassOpaque = c("#ffffff");
         k.glassHover = a(0, 0, 0, 0.05); k.glassPressed = a(0, 0, 0, 0.12);
     } else {
         k.window = c("#2a2a2d"); k.sidebar = c("#262629"); k.editor = c("#1f1f24"); k.gutter = c("#1f1f24");
@@ -57,11 +57,11 @@ Tokens Theme::tokens(bool dark) {
         k.warn = c("#ffb340"); k.breakpoint = c("#0a84ff");
         k.synComment = c("#6c7986"); k.synKeyword = c("#fc5fa3"); k.synString = c("#fc6a5d"); k.synNumber = c("#d0bf69");
         k.synType = c("#d0a8ff"); k.synIdentifier = c("#67b7a4"); k.synError = c("#ff453a");
-        k.windowTop = c("#33363f"); k.windowBottom = c("#24262c");
-        k.blobA = a(60, 110, 200, 0.34); k.blobB = a(110, 80, 190, 0.22);
+        k.windowTop = c("#171b23"); k.windowMid = c("#1e222b"); k.windowBottom = c("#1a1e27");
+        k.blobA = a(60, 110, 200, 0.0); k.blobB = a(110, 80, 190, 0.0);
         k.panelBorder = a(255, 255, 255, 0.08); k.shadow = a(0, 0, 0, 0.55);
-        k.glassTintTop = a(70, 72, 82, 0.50); k.glassTintBottom = a(30, 30, 34, 0.42);
-        k.glassRimLight = a(255, 255, 255, 0.34); k.glassRimDark = a(0, 0, 0, 0.50);
+        k.glassTintTop = a(74, 78, 90, 0.42); k.glassTintBottom = a(46, 48, 56, 0.36);
+        k.glassRimLight = a(255, 255, 255, 0.34); k.glassRimDark = a(0, 0, 0, 0.35);
         k.glassSheen = a(255, 255, 255, 0.16); k.glassOpaque = c("#3b3b3f");
         k.glassHover = a(255, 255, 255, 0.07); k.glassPressed = a(255, 255, 255, 0.14);
     }

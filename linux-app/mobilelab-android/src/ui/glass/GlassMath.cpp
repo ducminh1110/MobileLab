@@ -109,7 +109,8 @@ ShapeTable::ShapeTable(int w, int h, float radius, const Params &p)
                 ry *= cap / mag;
                 mag = cap;
             }
-            const float edge = 1.f - smooth(0.f, maxD * 0.35f, inside);
+            // the refracted / sharp band is only the outer few pixels of the bevel: the interior stays calm frost
+            const float edge = 1.f - smooth(0.f, std::min(maxD * 0.35f, zR), inside);
             // surface normal N = normalize(-grad h, 1)
             const float invN = 1.f / std::sqrt(1.f + slope * slope);
             const float Nx = -gx * invN, Ny = -gy * invN, Nz = invN;   // screen coords (y down)
@@ -134,15 +135,11 @@ ShapeTable::ShapeTable(int w, int h, float radius, const Params &p)
             const float sp2 = std::pow(std::max(dot3(H2), 0.f), 50.f) * 0.3f;
             const float spB = std::pow(std::max(dot3(L3), 0.f), 6.f) * 0.1f;
             const float sp4 = std::pow(std::max(dot3(H4), 0.f), 120.f) * 0.6f;
-            const float totalSpec = (sp1 + sp2 + spB + sp4) * p.specular;
-            const float bw = 1.5f * S;
-            float stroke = smooth(-bw - 1.f, -bw, sdf) * (1.f - smooth(-1.f, 0.f, sdf));
-            const float topBias = 0.5f + 0.5f * (-py / std::max(halfY, 1.f));
-            stroke *= 0.4f + 0.6f * topBias;
-            const float rim = edge * p.edgeHighlight * 0.22f;
-            const float glow = (1.f - smooth(0.f, 5.f * S, inside)) * p.edgeHighlight * 0.15f;
-            const float env = (Ny_up * 0.5f + 0.5f) * fres * 0.08f;
-            t.add = q8(totalSpec + rim + glow + stroke * p.edgeHighlight * 0.55f + env);
+            const float totalSpec = (sp1 + sp2 + spB * 0.f + sp4) * p.specular * (0.4f + 0.6f * (0.5f + 0.5f * (-py / std::max(halfY, 1.f))));
+            // Light layers are restrained: specular lobes live on the bevel normals (outer pixels only) and there is
+            // no wide rim / glow term. The 1px rim stroke is drawn by the renderer, once, so there is no double border.
+            const float env = (Ny_up * 0.5f + 0.5f) * fres * 0.05f;
+            t.add = q8(totalSpec + env);
             t.wmix = q8(fres);  // mixed towards white by 0.2 * fresnel when rendering
         }
     }
@@ -221,19 +218,23 @@ QImage shadowAlpha(int w, int h, float radius, int margin, float spread, float o
     }
     QImage img(w + 2 * margin, h + 2 * margin, QImage::Format_Alpha8);
     const float r = clampRadius(float(w), float(h), radius);
-    const float sp = std::max(spread, 1.f);
+    // Two soft layers like the web token (0 .5px 1.5px a.14, 0 3px 9px -3px a.10): a hairline contact shadow and a
+    // tight, low shadow. `spread` is the blur of the second layer in px, `offsetY` its offset; the stored alpha is
+    // normalised by 0.25 (the caller multiplies by the real strength, 0.25 in light mode).
+    const float B = std::max(spread, 1.f), B1 = std::max(0.75f, std::min(1.5f, B * 0.4f));
+    const float off1 = offsetY * 0.35f, sh2 = -B * 0.33f;
     for (int y = 0; y < img.height(); ++y) {
         uchar *line = img.scanLine(y);
         for (int x = 0; x < img.width(); ++x) {
-            const float sdf = sdfRoundRect(x + 0.5f - margin, y + 0.5f - margin - offsetY, float(w), float(h), r);
-            const float d = std::max(sdf - 1.f, 0.f);
-            const float outer = std::exp(-d * d / (sp * sp)) * 0.65f;
-            const float contact = std::exp(-d * 0.08f / std::max(sp * 0.04f, 0.01f)) * 0.35f;
-            // outside the shape only; the shape itself is opaque glass
-            const float inside = sdfRoundRect(x + 0.5f - margin, y + 0.5f - margin, float(w), float(h), r);
-            float a = inside < -1.f ? 0.f : (outer + contact) * (1.f - coverage(inside));
-            if (inside > sp * 3.f) a = 0.f;
-            line[x] = q8(a);
+            const float px = x + 0.5f - margin, py = y + 0.5f - margin;
+            const float inside = sdfRoundRect(px, py, float(w), float(h), r);
+            const float s1 = sdfRoundRect(px, py - off1, float(w), float(h), r);
+            const float s2 = sdfRoundRect(px, py - offsetY, float(w), float(h), r);
+            const float l1 = 1.f - smooth(-B1, B1, s1);
+            const float l2 = 1.f - smooth(-B + sh2, B + sh2, s2);
+            float a = (0.14f * l1 + 0.10f * l2) / 0.25f;
+            a *= inside < -1.f ? 0.f : (1.f - coverage(inside));   // outside the shape only
+            line[x] = q8(std::min(a, 1.f));
         }
     }
     QMutexLocker l(&mutex);

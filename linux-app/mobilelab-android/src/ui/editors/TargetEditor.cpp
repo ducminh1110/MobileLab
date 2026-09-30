@@ -26,7 +26,7 @@ TargetEditor::TargetEditor(const AppContext &ctx, QWidget *parent) : QWidget(par
     connect(m_reload, &QAction::triggered, this, &TargetEditor::captureNow);
     connect(m_zoomOut, &QAction::triggered, this, [this] { zoomBy(-1); });
     connect(m_zoomIn, &QAction::triggered, this, [this] { zoomBy(1); });
-    m_bar = new GlassGroup(this, Glass::Kind::Control);
+    m_bar = new GlassGroup(this, Glass::Kind::Quiet);
     m_bar->setObjectName("canvas-bar");
     m_bar->addButton(m_toggle, "play.fill");
     m_bar->addButton(m_camera, "camera");

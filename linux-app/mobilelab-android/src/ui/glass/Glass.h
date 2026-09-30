@@ -18,7 +18,9 @@ class GlassPanel;
 namespace Glass {
 
 enum class Level { Off, Blur, Full };
-enum class Kind { Control, Accent, Field, Sheet };
+// Control: toolbar groups, capsule, pills. Accent: selected tab. Tabs: navigator/inspector tab bar. Field: filter bars.
+// Quiet: jump bar and canvas bar controls (almost clear, rim only). Sheet: menus, dialogs, toast.
+enum class Kind { Control, Accent, Field, Sheet, Tabs, Quiet };
 
 Level parseLevel(const QString &s, Level fallback);
 QString levelName(Level l);
@@ -49,11 +51,15 @@ bool suppressed();
 // Everything needed to draw one look of the material (logical units; scaled by the device pixel ratio).
 struct Material {
     glass::Params params;
-    QColor tintTop, tintBottom, rimLight, rimDark, opaque;
+    // rimLight/rimLo: the 1px rim gradient (bright top left, dim elsewhere); rimDark: the hairline edge under it
+    // (one pixel, same as the rim, so there is a single border, not two).
+    QColor tintTop, tintBottom, rimLight, rimLo, rimDark, opaque;
+    float sheen = 0.f;           // faint highlight hugging the top edge, 0..1
+    float blurTintBoost = 1.28f; // Blur level (no refraction) uses a more opaque tint
     float lightScale = 1.f;
-    float shadowSpread = 3.5f;   // px
-    float shadowOffsetY = 1.f;   // px
-    float shadowAlpha = 0.3f;
+    float shadowSpread = 9.f;    // px, blur of the tight shadow layer (fitted down to the widget's shadow margin)
+    float shadowOffsetY = 3.f;   // px
+    float shadowAlpha = 0.25f;   // strength multiplier of the normalised shadow image (0 = none)
     static Material forKind(Kind k, const Tokens &t);
     // The look while pressed: bevel and specular flatten.
     Material pressed() const;

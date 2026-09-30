@@ -4,6 +4,7 @@
 #include <QMutex>
 #include <QPainter>
 #include <QPainterPath>
+#include <QRadialGradient>
 #include <QPaintEvent>
 #include <QSettings>
 #include <cmath>
@@ -65,72 +66,127 @@ void Settings::load(QSettings &s) {
 void Settings::save(QSettings &s) const { s.setValue("appearance/glass", levelName(m_level)); }
 
 Material Material::forKind(Kind k, const Tokens &t) {
+    // Values follow backend/public/assets/css/glass.css (refract level): a light tint with a slight vertical gradient,
+    // a 1px rim (bright top left, dim elsewhere), a tight low shadow, and only a faint top sheen.
     Material m;
-    m.tintTop = t.glassTintTop;
-    m.tintBottom = t.glassTintBottom;
-    m.rimLight = t.glassRimLight;
-    m.rimDark = t.glassRimDark;
+    const bool dk = t.dark;
+    auto W = [](int a) { return QColor(255, 255, 255, a); };
+    m.tintTop = dk ? QColor(74, 78, 90, 107) : QColor(243, 246, 250, 143);
+    m.tintBottom = dk ? QColor(46, 48, 56, 92) : QColor(228, 234, 241, 102);
+    m.rimLight = dk ? W(87) : W(166);          // top left
+    m.rimLo = dk ? W(15) : W(38);              // bottom right
+    m.rimDark = dk ? QColor(0, 0, 0, 90) : QColor(30, 50, 80, 26);
     m.opaque = t.glassOpaque;
-    m.lightScale = t.dark ? 1.0f : 0.8f;
-    m.shadowAlpha = t.dark ? 0.55f : 0.22f;
+    m.lightScale = dk ? 1.0f : 0.8f;
+    m.shadowAlpha = dk ? 0.62f : 0.25f;
+    m.shadowSpread = 9.f;
+    m.shadowOffsetY = 3.f;
+    m.sheen = dk ? 0.6f : 0.5f;
     glass::Params &p = m.params;
     p.refraction = 0.42f;
-    p.chroma = 0.04f;
-    p.edgeHighlight = 0.30f;
-    p.specular = 0.28f;
-    p.fresnel = 1.0f;
-    p.zRadius = 14.f;
-    p.blur = 6.f;
+    p.chroma = 0.03f;
+    p.edgeHighlight = 0.f;
+    p.specular = 0.10f;
+    p.fresnel = 0.5f;
+    p.zRadius = 7.f;
+    p.blur = 8.f;
     p.edgeSharp = 0.65f;
     p.saturate = 1.5f;
     switch (k) {
     case Kind::Control:
         break;
     case Kind::Accent: {
-        QColor top = t.accent.lighter(112), bottom = t.accent.darker(108);
-        top.setAlpha(238);
-        bottom.setAlpha(232);
+        // A flat accent circle with a subtle top sheen.
+        QColor top = t.accent.lighter(105), bottom = t.accent;
+        top.setAlpha(250);
+        bottom.setAlpha(250);
         m.tintTop = top;
         m.tintBottom = bottom;
-        m.rimLight = QColor(255, 255, 255, t.dark ? 90 : 150);
-        m.rimDark = QColor(0, 0, 0, 40);
-        p.refraction = 0.10f;
+        m.rimLight = W(dk ? 60 : 92);
+        m.rimLo = W(0);
+        m.rimDark = QColor(0, 0, 0, 0);
+        p.refraction = 0.f;
         p.chroma = 0.f;
-        p.specular = 0.22f;
-        p.edgeHighlight = 0.12f;
-        p.zRadius = 12.f;
+        p.specular = 0.f;
+        p.zRadius = 6.f;
         p.blur = 3.f;
+        m.sheen = 0.5f;
         m.opaque = t.accent;
         m.shadowAlpha = 0.f;
         break;
     }
-    case Kind::Field: {
-        // Flat grey glass (navigator tab bar, filter bars, jump bar controls): a faint dark veil in light mode,
-        // a faint light veil in dark mode, hardly any highlight.
-        m.tintTop = t.dark ? QColor(255, 255, 255, 22) : QColor(30, 50, 80, 22);
-        m.tintBottom = t.dark ? QColor(255, 255, 255, 16) : QColor(30, 50, 80, 30);
-        m.rimLight = QColor(255, 255, 255, t.dark ? 26 : 70);
-        m.rimDark = QColor(0, 0, 0, t.dark ? 70 : 22);
-        m.lightScale = t.dark ? 0.5f : 0.35f;
-        p.refraction = 0.18f;
+    case Kind::Tabs: {
+        // A flat, faintly tinted pill.
+        m.tintTop = dk ? W(28) : QColor(216, 224, 233, 158);
+        m.tintBottom = dk ? W(20) : QColor(208, 217, 228, 143);
+        m.rimLight = dk ? W(40) : W(120);
+        m.rimLo = dk ? W(10) : W(30);
+        m.rimDark = dk ? W(20) : QColor(30, 50, 80, 15);
+        m.lightScale = dk ? 0.4f : 0.3f;
+        p.refraction = 0.12f;
         p.chroma = 0.f;
-        p.specular = 0.06f;
-        p.edgeHighlight = 0.06f;
-        p.zRadius = 10.f;
+        p.specular = 0.03f;
+        p.zRadius = 8.f;
+        p.blur = 6.f;
+        p.saturate = 1.2f;
+        m.sheen = 0.15f;
+        m.opaque = t.field;
+        m.shadowAlpha = 0.f;
+        break;
+    }
+    case Kind::Field: {
+        m.tintTop = dk ? W(26) : QColor(232, 235, 239, 199);
+        m.tintBottom = dk ? W(18) : QColor(238, 240, 244, 178);
+        m.rimLight = dk ? W(30) : W(80);
+        m.rimLo = dk ? W(8) : W(20);
+        m.rimDark = dk ? W(24) : QColor(30, 50, 80, 31);
+        m.lightScale = dk ? 0.4f : 0.3f;
+        p.refraction = 0.10f;
+        p.chroma = 0.f;
+        p.specular = 0.02f;
+        p.zRadius = 8.f;
+        p.blur = 6.f;
+        p.saturate = 1.2f;
+        m.sheen = 0.f;
+        m.opaque = t.field;
+        m.shadowAlpha = 0.f;
+        break;
+    }
+    case Kind::Quiet: {
+        // Almost clear, rim only.
+        m.tintTop = dk ? W(15) : QColor(246, 248, 251, 87);
+        m.tintBottom = dk ? W(8) : QColor(236, 240, 245, 56);
+        m.rimLight = dk ? W(46) : W(115);
+        m.rimLo = dk ? W(10) : W(26);
+        m.rimDark = dk ? W(20) : QColor(30, 50, 80, 18);
+        m.lightScale = dk ? 0.5f : 0.35f;
+        p.refraction = 0.12f;
+        p.chroma = 0.f;
+        p.specular = 0.02f;
+        p.zRadius = 7.f;
+        p.blur = 5.f;
+        p.saturate = 1.15f;
+        m.sheen = 0.2f;
+        m.blurTintBoost = 1.15f;
         m.opaque = t.field;
         m.shadowAlpha = 0.f;
         break;
     }
     case Kind::Sheet: {
-        m.tintTop = t.dark ? QColor(48, 48, 54, 226) : QColor(250, 250, 252, 222);
-        m.tintBottom = t.dark ? QColor(34, 34, 40, 232) : QColor(244, 246, 250, 232);
-        p.refraction = 0.06f;
+        m.tintTop = dk ? QColor(54, 56, 64, 224) : QColor(250, 251, 253, 230);
+        m.tintBottom = dk ? QColor(46, 48, 56, 214) : QColor(244, 246, 250, 219);
+        m.rimLight = dk ? W(64) : W(150);
+        m.rimLo = dk ? W(14) : W(40);
+        m.rimDark = dk ? QColor(0, 0, 0, 100) : QColor(30, 50, 80, 30);
+        p.refraction = 0.05f;
         p.chroma = 0.f;
-        p.specular = 0.10f;
-        p.zRadius = 18.f;
+        p.specular = 0.04f;
+        p.zRadius = 10.f;
         p.blur = 9.f;
         p.edgeSharp = 0.15f;
-        m.opaque = t.dark ? QColor("#2c2c31") : QColor("#f7f7f9");
+        m.sheen = 0.25f;
+        m.blurTintBoost = 1.f;
+        m.opaque = dk ? QColor("#2c2c31") : QColor("#f7f7f9");
         break;
     }
     }
@@ -143,6 +199,7 @@ Material Material::pressed() const {
     m.params.specular *= 0.4f;
     m.params.refraction *= 0.6f;
     m.lightScale *= 0.7f;
+    m.sheen *= 0.5f;
     m.tintTop = QColor::fromRgbF(tintTop.redF() * 0.92, tintTop.greenF() * 0.92, tintTop.blueF() * 0.92, std::min(1.0, tintTop.alphaF() + 0.06));
     m.tintBottom = QColor::fromRgbF(tintBottom.redF() * 0.92, tintBottom.greenF() * 0.92, tintBottom.blueF() * 0.92, std::min(1.0, tintBottom.alphaF() + 0.06));
     return m;
@@ -226,20 +283,51 @@ Rendered renderMaterialStages(const QImage &backdrop, QPoint origin, int w, int 
     QPainter pa(&r.pre);
     pa.setRenderHint(QPainter::Antialiasing);
     if (level != Level::Off && !backdrop.isNull()) {
+        const float boost = level == Level::Blur ? m.blurTintBoost : 1.f;
+        auto boosted = [&](QColor c) { c.setAlphaF(std::min<qreal>(1.0, c.alphaF() * boost)); return c; };
         QLinearGradient tint(0, 0, 0, h);
-        tint.setColorAt(0, m.tintTop);
-        tint.setColorAt(1, m.tintBottom);
+        tint.setColorAt(0, boosted(m.tintTop));
+        tint.setColorAt(1, boosted(m.tintBottom));
         pa.fillRect(QRect(0, 0, w, h), tint);
     }
-    // Rim: brighter at the top left (light source), dimmer bottom right; on Off a plain hairline border.
-    const qreal wpx = std::max<qreal>(1.0, dpr);
-    QLinearGradient rim(0, 0, w, h);
-    rim.setColorAt(0, m.rimLight);
-    rim.setColorAt(0.5, level == Level::Off ? m.rimDark : QColor(m.rimLight.red(), m.rimLight.green(), m.rimLight.blue(), m.rimLight.alpha() / 3));
-    rim.setColorAt(1, m.rimDark);
-    pa.setPen(QPen(QBrush(rim), wpx));
+    const qreal wpx = std::max<qreal>(1.0, std::round(dpr));
+    const qreal rad = r.table->radius();
+    if (level != Level::Off && m.sheen > 0.f) {
+        // A faint highlight hugging the top edge (soft radial at the top left, plus a thin top fade).
+        const float sa = std::min(1.f, m.sheen);
+        QRadialGradient rg(QPointF(w * 0.18, -h * 0.2), std::max<qreal>(w * 0.55, h * 0.9));
+        rg.setColorAt(0, QColor(255, 255, 255, int(0.30f * sa * 255)));
+        rg.setColorAt(1, QColor(255, 255, 255, 0));
+        pa.setClipPath([&] { QPainterPath cp; cp.addRoundedRect(QRectF(0, 0, w, h), rad, rad); return cp; }());
+        pa.fillRect(QRect(0, 0, w, h), rg);
+        QLinearGradient lg(0, 0, 0, h * 0.4);
+        lg.setColorAt(0, QColor(255, 255, 255, int(0.14f * sa * 255)));
+        lg.setColorAt(1, QColor(255, 255, 255, 0));
+        pa.fillRect(QRect(0, 0, w, int(h * 0.4) + 1), lg);
+        pa.setClipping(false);
+    }
+    // One 1px border: the hairline edge colour underneath, the rim light over it (bright top left, dim elsewhere).
     pa.setBrush(Qt::NoBrush);
-    pa.drawRoundedRect(QRectF(wpx / 2, wpx / 2, w - wpx, h - wpx), r.table->radius() - wpx / 2, r.table->radius() - wpx / 2);
+    const QRectF edgeR(wpx / 2, wpx / 2, w - wpx, h - wpx);
+    const qreal er = std::max<qreal>(0.0, rad - wpx / 2);
+    if (level == Level::Off) {
+        QColor c = m.rimDark;
+        c.setAlpha(std::max(c.alpha(), 46));
+        pa.setPen(QPen(c, wpx));
+        pa.drawRoundedRect(edgeR, er, er);
+    } else {
+        if (m.rimDark.alpha() > 0) {
+            pa.setPen(QPen(m.rimDark, wpx));
+            pa.drawRoundedRect(edgeR, er, er);
+        }
+        QLinearGradient rim(0, 0, w * 0.55, h * 1.0);   // about 160 degrees like the web rim
+        rim.setColorAt(0, m.rimLight);
+        rim.setColorAt(0.42, m.rimLo);
+        rim.setColorAt(0.68, m.rimLo);
+        rim.setColorAt(1, QColor(m.rimLight.red(), m.rimLight.green(), m.rimLight.blue(), m.rimLight.alpha() / 2));
+        pa.setPen(QPen(QBrush(rim), wpx));
+        pa.drawRoundedRect(edgeR, er, er);
+    }
     pa.end();
     return r;
 }
@@ -507,10 +595,12 @@ void GlassPanel::drawShadow(QPainter &p, const QRect &shape, Glass::Level lvl) {
     const qreal radiusDev = cornerRadius() * dpr;
     quint64 key = Glass::mix(Glass::mix(quint64(w) << 32 | quint64(h), quint64(md)), quint64(radiusDev * 16) + (tk().dark ? 1 : 0) + quint64(lvl) * 3 + quint64(dpr * 100) * 7);
     if (key != m_shadowKey || m_shadow.isNull()) {
-        const QImage a = glass::shadowAlpha(w, h, float(radiusDev), md, mat.shadowSpread * float(dpr) * 0.65f, mat.shadowOffsetY * float(dpr));
+        // The blur / offset are fitted so the falloff ends inside the widget's shadow margin (no hard cut).
+        const float fit = std::min(1.f, std::max(0.f, (float(md) - 0.5f * float(dpr))) / ((mat.shadowSpread * 0.67f + mat.shadowOffsetY) * float(dpr)));
+        const QImage a = glass::shadowAlpha(w, h, float(radiusDev), md, mat.shadowSpread * fit * float(dpr), mat.shadowOffsetY * fit * float(dpr));
         m_shadow = QImage(a.size(), QImage::Format_ARGB32_Premultiplied);
         const float k = mat.shadowAlpha * (lvl == Glass::Level::Off ? 0.7f : 1.f);
-        const QColor base = tk().dark ? QColor(0, 0, 0) : QColor(20, 30, 60);
+        const QColor base = tk().dark ? QColor(0, 0, 0) : QColor(20, 40, 70);
         for (int y = 0; y < a.height(); ++y) {
             const uchar *src = a.constScanLine(y);
             quint32 *dst = reinterpret_cast<quint32 *>(m_shadow.scanLine(y));
