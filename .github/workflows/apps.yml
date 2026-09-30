@@ -1,0 +1,103 @@
+name: Apps
+
+# Builds and tests the two native applications on their own operating systems:
+#   macOS app  (SwiftUI, Xcode project + SwiftPM Core package)   -> macos-latest
+#   Linux app  (Qt 6, Android device lab)                        -> ubuntu-24.04
+# Artifacts are uploaded so every pull request has downloadable builds.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'macos-app/**'
+      - 'linux-app/**'
+      - 'shared/fonts/**'
+      - '.github/workflows/apps.yml'
+  pull_request:
+    paths:
+      - 'macos-app/**'
+      - 'linux-app/**'
+      - 'shared/fonts/**'
+      - '.github/workflows/apps.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: apps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS app (build + Core tests)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Core package tests (logic shared by the app, runs without a UI)
+        working-directory: macos-app
+        run: swift test
+
+      - name: Build the app (unsigned)
+        run: |
+          xcodebuild \
+            -project macos-app/IOSLabDashboard.xcodeproj \
+            -scheme IOSLabDashboard \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package
+        run: |
+          APP="$RUNNER_TEMP/dd/Build/Products/Release/IOSLabDashboard.app"
+          test -d "$APP"
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/MobileLab-macos-unsigned.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MobileLab-macos-unsigned
+          path: dist/MobileLab-macos-unsigned.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux app (Qt 6 build + tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt 6 and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qt6-base-dev qt6-base-dev-tools qt6-svg-dev libqt6svg6 \
+            cmake ninja-build build-essential pkg-config libgl1-mesa-dev \
+            fontconfig fonts-dejavu-core
+
+      - name: Configure
+        run: cmake -S linux-app/mobilelab-android -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test (unit tests, fake Android SDK fixture, offscreen screenshot run)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Install and package
+        run: |
+          cmake --install build --prefix "$PWD/stage/mobilelab-android"
+          mkdir -p dist
+          tar -C stage -czf dist/MobileLab-linux-x86_64.tar.gz mobilelab-android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MobileLab-linux-x86_64
+          path: dist/MobileLab-linux-x86_64.tar.gz
+          if-no-files-found: error
