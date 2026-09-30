@@ -114,7 +114,7 @@ void Capsule::paintContent(QPainter &p, const QRect &shape) {
     const QFont fMed = Theme::instance().ui(12, QFont::Medium), fSemi = Theme::instance().ui(12, QFont::DemiBold), fReg = Theme::instance().ui(12);
     // scheme
     QRect r = L.scheme;
-    Icons::paint(&p, "mobilelab.mark", QRectF(r.left() + 8, r.center().y() - 8, 16, 16), t.accent);
+    Icons::paint(&p, "mobilelab.logo", QRectF(r.left() + 8, r.center().y() - 8, 16, 16), t.accent);
     p.setFont(fMed);
     p.setPen(t.text);
     p.drawText(QRect(r.left() + 8 + 16 + 6, r.top(), r.width(), r.height()), Qt::AlignVCenter | Qt::AlignLeft, L.schemeText);

@@ -17,6 +17,7 @@ int main(int argc, char *argv[]) {
     app.setApplicationDisplayName("MobileLab Android");
     app.setApplicationVersion(MOBILELAB_VERSION);
     app.setDesktopFileName("mobilelab-android");
+    app.setWindowIcon(Icons::icon("mobilelab.logo", Qt::white, 256));
     QSettings::setDefaultFormat(QSettings::IniFormat);
     if (!settingsDir.isEmpty()) {
         QDir().mkpath(QString::fromLocal8Bit(settingsDir));

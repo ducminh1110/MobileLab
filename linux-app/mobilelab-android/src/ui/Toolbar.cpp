@@ -65,7 +65,7 @@ void Toolbar::paintEvent(QPaintEvent *) {
     if (!m_showTitle) return;
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    Icons::paint(&p, "mobilelab.mark", QRectF(m_titleRect.left(), height() / 2 - 8, 16, 16), tk().accent);
+    Icons::paint(&p, "mobilelab.logo", QRectF(m_titleRect.left(), height() / 2 - 8, 16, 16), tk().accent);
     p.setFont(Theme::instance().ui(13, QFont::Bold));
     p.setPen(tk().text);
     p.drawText(QRect(m_titleRect.left() + 22, 0, m_titleRect.width(), height()), Qt::AlignVCenter | Qt::AlignLeft, "MobileLab");

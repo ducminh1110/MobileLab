@@ -140,7 +140,7 @@ QVector<JumpBar::Crumb> EditorArea::crumbsFor(const Location &loc) const {
     QVector<Crumb> out;
     Crumb root;
     root.text = "MobileLab";
-    root.icon = "mobilelab.mark";
+    root.icon = "mobilelab.logo";
     root.iconColor = t.accent;
     root.loc = Location{};
     out << root;

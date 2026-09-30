@@ -91,7 +91,7 @@ install(FILES ${MOBILELAB_FONT_DIR}/LICENSE-Inter.txt ${MOBILELAB_FONT_DIR}/OFL-
         DESTINATION ${CMAKE_INSTALL_DOCDIR}/licenses)
 install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
 install(FILES packaging/mobilelab-android.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
-install(FILES resources/icons/mobilelab.mark.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME mobilelab-android.svg)
+install(FILES resources/icons/mobilelab.logo.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME mobilelab-android.svg)
 
 # --- .deb package (cpack -G DEB) -----------------------------------------------------------------
 # Dependencies are read from the binary (dpkg-shlibdeps), so the package stays correct across Qt versions.

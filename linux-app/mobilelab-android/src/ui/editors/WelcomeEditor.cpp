@@ -56,7 +56,7 @@ class MarkView : public QWidget {
 public:
     explicit MarkView(QWidget *p) : QWidget(p) { setFixedSize(72, 72); }
 protected:
-    void paintEvent(QPaintEvent *) override { QPainter p(this); p.setRenderHint(QPainter::Antialiasing); Icons::paint(&p, "mobilelab.mark", QRectF(4, 4, 64, 64), tk().accent); }
+    void paintEvent(QPaintEvent *) override { QPainter p(this); p.setRenderHint(QPainter::Antialiasing); Icons::paint(&p, "mobilelab.logo", QRectF(4, 4, 64, 64), tk().accent); }
 };
 }
 

@@ -565,7 +565,7 @@ protected:
         const Tokens &t = tk();
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
-        Icons::paint(&p, "mobilelab.mark", QRectF(14, 7, 16, 16), t.accent);
+        Icons::paint(&p, "mobilelab.logo", QRectF(14, 7, 16, 16), t.accent);
         p.setFont(Theme::instance().ui(13, QFont::DemiBold));
         p.setPen(t.text);
         p.drawText(QRect(36, 0, width() - 110, headerH), Qt::AlignVCenter | Qt::AlignLeft, m_name);
