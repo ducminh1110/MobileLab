@@ -10,6 +10,7 @@
 .db-btn:disabled { opacity: 0.35; }
 .db-btn[aria-pressed="true"] { color: var(--accent); }
 .db-hide { color: var(--breakpoint); }
+.db-hide .ic { transition: color 0.15s ease; }
 .db-hide:hover:not(:disabled) { color: var(--breakpoint); }
 .db-sep { width: 1px; height: 14px; margin: 0 5px; background: var(--divider); flex: none; }
 .db-crumbs { display: flex; align-items: center; min-width: 0; overflow: hidden; margin-left: 2px; }
@@ -18,8 +19,14 @@
 .db-right { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: none; padding-left: 8px; color: var(--text-secondary); }
 .db-attempt { white-space: nowrap; }
 .db-close { display: none; }
+.debug-bar-collapsed { background: var(--editor); }
+.debug-bar-collapsed .db-hide { color: var(--text-secondary); }
+.debug-bar-collapsed .db-hide:hover:not(:disabled) { color: var(--breakpoint); }
+.db-status { min-width: 0; margin-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.db-status strong { font-weight: 600; color: var(--text); }
+.db-btn { transition: background-color 0.1s ease, color 0.1s ease; }
 
-.debug-panes { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.debug-panes { flex: none; height: calc(var(--debug-h) - var(--bar-h)); min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .debug-panes[data-layout="vars"] { grid-template-columns: minmax(0, 1fr); }
 .debug-panes[data-layout="vars"] .console { display: none; }
 .debug-panes[data-layout="console"] { grid-template-columns: minmax(0, 1fr); }

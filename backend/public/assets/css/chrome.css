@@ -1,17 +1,24 @@
-/* Window anatomy: toolbar, three panes, dividers (spec section 1). Sizes live in custom properties that the
-   shell writes through the CSSOM (the CSP forbids inline style attributes). */
+/* Window anatomy (spec section 1), Xcode 26 style: a soft tinted window with three floating rounded panels
+   (navigator, editor card, inspector), glass toolbar groups on top. Sizes live in custom properties that the shell
+   writes through the CSSOM (the CSP forbids inline style attributes). Collapsing animates the grid tracks; the panels
+   keep their width and slide out while the tracks shrink, so their content never reflows. */
 
 .app {
   --nav-w: 300px;
   --insp-w: 300px;
   --debug-h: 240px;
   --toolbar-h: 52px;
+  --bar-h: 28px;
+  --pad: 8px;
+  --dur: 0.26s;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --nav-col: var(--nav-w);
-  --nav-div: 1px;
+  --nav-gap: var(--panel-gap);
   --insp-col: var(--insp-w);
-  --insp-div: 1px;
+  --insp-gap: var(--panel-gap);
   --debug-row: var(--debug-h);
   --debug-div: 1px;
+  --tb-left-min: 132px;
 
   position: relative;
   display: grid;
@@ -19,76 +26,96 @@
   height: 100vh;
   height: 100dvh;
   min-width: 0;
-  background: var(--window);
+  background: linear-gradient(155deg, var(--win-a) 0%, var(--win-b) 48%, var(--win-c) 100%);
   overflow: hidden;
 }
-.app[data-nav="closed"] { --nav-col: 0px; --nav-div: 0px; }
-.app[data-insp="closed"] { --insp-col: 0px; --insp-div: 0px; }
-.app[data-debug="closed"] { --debug-row: 0px; --debug-div: 0px; }
+.app[data-nav="closed"] { --nav-col: 0px; --nav-gap: 0px; }
+.app[data-insp="closed"] { --insp-col: 0px; --insp-gap: 0px; }
+.app[data-debug="closed"] { --debug-row: var(--bar-h); --debug-div: 0px; }
 
 .workspace {
+  position: relative;
   display: grid;
-  grid-template-columns: var(--nav-col) var(--nav-div) minmax(0, 1fr) var(--insp-div) var(--insp-col);
+  grid-template-columns: var(--nav-col) var(--nav-gap) minmax(0, 1fr) var(--insp-gap) var(--insp-col);
   min-height: 0;
   min-width: 0;
+  padding: 0 var(--pad) var(--pad);
+  transition: grid-template-columns var(--dur) var(--ease);
 }
 .navigator { grid-column: 1; }
 #div-nav { grid-column: 2; }
 .center { grid-column: 3; }
 #div-insp { grid-column: 4; }
 .inspector { grid-column: 5; }
-.app[data-nav="closed"] .navigator, .app[data-nav="closed"] #div-nav,
-.app[data-insp="closed"] .inspector, .app[data-insp="closed"] #div-insp { visibility: hidden; }
-.app[data-debug="closed"] .debug, .app[data-debug="closed"] #div-debug { visibility: hidden; }
+
+/* the floating panels */
+.navigator, .center, .inspector {
+  min-width: 0; min-height: 0; overflow: hidden;
+  border-radius: var(--panel-radius); box-shadow: var(--panel-shadow);
+}
+.navigator, .inspector { background: var(--sidebar); }
+.navigator { width: var(--nav-w); justify-self: end; }
+.inspector { width: var(--insp-w); justify-self: start; }
+.navigator, .inspector {
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease), visibility 0s linear 0s;
+}
+.app[data-nav="closed"] .navigator { opacity: 0; transform: translateX(-28px); visibility: hidden; pointer-events: none; transition-delay: 0s, 0s, var(--dur); }
+.app[data-insp="closed"] .inspector { opacity: 0; transform: translateX(28px); visibility: hidden; pointer-events: none; transition-delay: 0s, 0s, var(--dur); }
+.app[data-nav="closed"] #div-nav, .app[data-insp="closed"] #div-insp { visibility: hidden; }
 
 .center {
   display: grid;
   grid-template-rows: 28px minmax(0, 1fr) var(--debug-div) var(--debug-row);
-  min-width: 0;
-  min-height: 0;
   background: var(--editor);
+  transition: grid-template-rows var(--dur) var(--ease);
 }
-.navigator, .inspector { min-width: 0; min-height: 0; overflow: hidden; background: var(--sidebar); }
 
-/* dividers: 1px line, 7px hit area */
-.divider { position: relative; background: var(--divider); z-index: 3; }
+/* dividers between the panels: the 8px gap is the grab area, a slim rounded line shows on hover and while dragging */
+.divider { position: relative; z-index: 3; }
 .divider::after { content: ""; position: absolute; }
-.divider-v::after { top: 0; bottom: 0; left: -3px; right: -3px; cursor: col-resize; }
+.divider-v::after { top: 0; bottom: 0; left: -2px; right: -2px; cursor: col-resize; }
+.divider-v::before {
+  content: ""; position: absolute; top: 14px; bottom: 14px; left: 50%; width: 3px; margin-left: -1.5px; border-radius: 2px;
+  background: transparent; transition: background-color 0.15s ease;
+}
+.divider-v:hover::before, .divider-v.dragging::before, .divider-v:focus-visible::before { background: color-mix(in srgb, var(--accent) 80%, transparent); }
+.divider-h { background: var(--divider); }
 .divider-h::after { left: 0; right: 0; top: -3px; bottom: -3px; cursor: row-resize; }
-.divider:hover, .divider.dragging, .divider:focus-visible { background: var(--accent); outline: none; }
+.divider-h:hover, .divider-h.dragging, .divider-h:focus-visible { background: var(--accent); }
+.divider:focus-visible { outline: none; }
 .app.dragging { user-select: none; }
 .app.dragging.drag-v { cursor: col-resize; }
 .app.dragging.drag-h { cursor: row-resize; }
+/* no animation while the user drags a divider: the panel follows the pointer 1:1 */
+.app.dragging .workspace, .app.dragging .center, .app.dragging .toolbar { transition: none; }
+/* the snap when a drag passes the minimum keeps its animation */
+.app.dragging.snapping .workspace, .app.dragging.snapping .center, .app.dragging.snapping .toolbar { transition: grid-template-columns var(--dur) var(--ease), grid-template-rows var(--dur) var(--ease); }
 
 /* ---------------------------------------------------------------- toolbar */
 .toolbar {
   position: relative;
   display: grid;
-  grid-template-columns: var(--tb-left, auto) minmax(0, 1fr) minmax(0, 560px) minmax(0, 1fr);
+  grid-template-columns: max(calc(var(--nav-col) + var(--nav-gap)), var(--tb-left-min)) minmax(0, 1fr) minmax(0, 560px) minmax(0, 1fr);
   align-items: center;
   height: var(--toolbar-h);
-  background: var(--window);
-  border-bottom: 0.5px solid var(--divider);
+  padding: 0 var(--pad);
   z-index: 4;
   min-width: 0;
-}
-.app[data-nav="open"] .toolbar {
-  --tb-left: calc(var(--nav-w) + 1px);
-  background: linear-gradient(to right, var(--sidebar) 0, var(--sidebar) var(--nav-w), var(--divider) var(--nav-w), var(--divider) calc(var(--nav-w) + 1px), var(--window) calc(var(--nav-w) + 1px));
+  transition: grid-template-columns var(--dur) var(--ease);
 }
 
-.tb-left { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 14px 0 12px; min-width: 0; }
-.app[data-nav="closed"] .tb-left { justify-content: flex-start; gap: 6px; padding: 0 10px 0 12px; }
-.tb-run { display: flex; align-items: center; gap: 2px; }
-.tb-btn { width: 30px; height: 28px; border-radius: 8px; color: var(--text); }
-.tb-btn .ic { width: 18px; height: 18px; }
+.tb-left { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 var(--panel-gap) 0 0; min-width: 0; }
+.app[data-nav="closed"] .tb-left { justify-content: flex-start; padding-right: 0; }
+.tb-group { padding: 2px; height: 30px; }
+.tb-group.solo { width: 30px; justify-content: center; }
+.tb-run .gbtn { width: 34px; }
 .tb-btn.tb-nav { color: var(--text-secondary); }
-.tb-btn:disabled { color: var(--text-tertiary); opacity: 0.6; }
-.tb-btn.tb-stop:not(:disabled) { color: var(--text); }
-.tb-btn.tb-play { color: var(--text); }
-.tb-btn.tb-play .ic { width: 17px; height: 17px; }
+.tb-btn.tb-nav[aria-expanded="true"] { color: var(--text); }
+.tb-btn.tb-stop:not(:disabled), .tb-btn.tb-play:not(:disabled) { color: var(--text); }
+.tb-btn.tb-play .ic { width: 16px; height: 16px; }
+.tb-btn.tb-stop .ic { width: 14px; height: 14px; }
 
-.tb-title { display: flex; align-items: center; gap: 8px; padding: 0 12px; min-width: 0; }
+.tb-title { display: flex; align-items: center; gap: 8px; padding: 0 12px 0 10px; min-width: 0; }
 .app-menu {
   display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 4px; margin-left: -4px;
   border-radius: 8px; font-size: 13px; line-height: 16px; font-weight: 700; color: var(--text); min-width: 0;
@@ -97,15 +124,13 @@
 .app-menu span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-menu .ic-18 { width: 18px; height: 18px; }
 
-.tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 2px; padding: 0 12px 0 8px; }
-.tb-right .icon-btn { width: 32px; height: 28px; color: var(--text-secondary); }
-.tb-right .icon-btn .ic { width: 18px; height: 18px; }
-.tb-right .icon-btn[aria-pressed="true"] { color: var(--text); }
+.tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 0 0 8px; }
+.tb-right .gbtn { width: 32px; color: var(--text-secondary); }
+.tb-right .gbtn[aria-expanded="true"] { color: var(--text); }
 
-/* the capsule */
+/* the capsule: one glass pill, white on light */
 .capsule {
   display: flex; align-items: center; gap: 0; height: 34px; padding: 0 4px;
-  border-radius: 17px; background: var(--capsule); box-shadow: var(--capsule-shadow);
   min-width: 0; max-width: 560px; width: 100%; justify-self: center;
   font-size: 12px; line-height: 16px;
 }
@@ -113,7 +138,7 @@
   display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 13px;
   font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text); min-width: 0; flex: 0 1 auto;
 }
-.cap-seg:hover:not(:disabled), .cap-seg[aria-expanded="true"] { background: var(--hover); }
+.cap-seg:hover:not(:disabled), .cap-seg[aria-expanded="true"] { background: var(--glass-hover); }
 .cap-seg span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cap-scheme { max-width: 44%; }
 .cap-scheme .ic-mark { width: 16px; height: 16px; }
@@ -124,9 +149,8 @@
   display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: 1 1 0; min-width: 0; height: 26px;
   padding: 0 12px 0 10px; margin-left: 4px; border-radius: 13px;
   font-size: 12px; line-height: 16px; text-align: right; color: var(--text);
-  border-left: 0.5px solid var(--divider); border-top-left-radius: 0; border-bottom-left-radius: 0;
 }
-.cap-status:hover { background: var(--hover); border-radius: 13px; border-left-color: transparent; }
+.cap-status:hover { background: var(--glass-hover); }
 .cap-status .st-label { font-weight: 600; white-space: nowrap; flex: none; }
 .cap-status .st-sep { color: var(--text-secondary); flex: none; margin: 0 1px; }
 .cap-status .st-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--text); }
@@ -137,20 +161,19 @@
 .cap-status[data-kind="warn"] .st-label { color: var(--warn); }
 .cap-status .tag { flex: none; }
 
-/* menus */
+/* menus (glass) */
 .overlay { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
 .overlay > * { pointer-events: auto; }
 .menu-backdrop { position: fixed; inset: 0; background: transparent; z-index: 60; }
 .menu {
-  position: fixed; z-index: 61; min-width: 200px; max-width: 420px; padding: 5px; border-radius: 10px; overflow: auto;
-  background: var(--menu); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  box-shadow: var(--menu-shadow), 0 0 0 0.5px var(--menu-border);
+  position: fixed; z-index: 61; min-width: 200px; max-width: 420px; padding: 5px; overflow: auto;
+  --glass-radius: 12px; border-radius: 12px;
   font-size: 13px; line-height: 20px;
   animation: menu-in 0.09s ease-out;
 }
 @keyframes menu-in { from { opacity: 0; transform: translateY(-3px); } }
 .mi {
-  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 22px; padding: 1px 10px 1px 4px; border-radius: 5px;
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 22px; padding: 1px 10px 1px 4px; border-radius: 6px;
   color: var(--text); text-align: left; cursor: default;
 }
 .mi:focus, .mi:hover:not(:disabled) { background: var(--accent); color: var(--accent-text); outline: none; }
@@ -168,4 +191,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .menu { animation: none; }
+  .workspace, .center, .toolbar, .navigator, .inspector { transition: none !important; }
 }

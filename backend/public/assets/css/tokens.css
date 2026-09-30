@@ -5,7 +5,14 @@
   color-scheme: light dark;
 
   --window: light-dark(#f5f5f7, #2a2a2d);
-  --sidebar: light-dark(#f3f5f7, #262629);
+  /* Xcode 26: a soft tinted window behind floating rounded panels (glass refracts this) */
+  --win-a: light-dark(#d5e6f8, #171b23);
+  --win-b: light-dark(#e6eef8, #1e222b);
+  --win-c: light-dark(#d9e3f2, #1a1e27);
+  --panel-gap: 8px;
+  --panel-radius: 14px;
+  --panel-shadow: 0 0 0 0.5px light-dark(rgb(30 50 90 / 12%), rgb(255 255 255 / 7%)), 0 1px 3px light-dark(rgb(20 40 80 / 10%), rgb(0 0 0 / 40%)), 0 10px 28px light-dark(rgb(20 40 80 / 7%), rgb(0 0 0 / 25%));
+  --sidebar: light-dark(#f4f8fc, #25282f);
   --editor: light-dark(#ffffff, #1f1f24);
   --gutter: light-dark(#fbfbfc, #1f1f24);
   --gutter-text: light-dark(#b4b6ba, #5f6068);
@@ -18,7 +25,7 @@
   --selection: light-dark(#dcdde1, #3c3c42);
   --selection-focused: var(--accent);
   --capsule: light-dark(#ffffff, #3b3b3f);
-  --capsule-shadow: light-dark(0 0.5px 3px rgb(0 0 0 / 16%), 0 0.5px 3px rgb(0 0 0 / 50%));
+  --capsule-shadow: 0 0.5px 3px light-dark(rgb(0 0 0 / 16%), rgb(0 0 0 / 50%));
   --folder: #5cb0f5;
   --field: light-dark(#efeff1, #333338);
   --debug-bar: light-dark(#f2f2f4, #2c2c30);
@@ -48,7 +55,7 @@
   --canvas: light-dark(#f0f1f4, #17171b);
   --menu: light-dark(rgb(248 248 250 / 94%), rgb(52 52 57 / 94%));
   --menu-border: light-dark(rgb(0 0 0 / 12%), rgb(255 255 255 / 12%));
-  --menu-shadow: light-dark(0 8px 28px rgb(0 0 0 / 22%), 0 8px 28px rgb(0 0 0 / 55%));
+  --menu-shadow: 0 8px 28px light-dark(rgb(0 0 0 / 22%), rgb(0 0 0 / 55%));
   --sheet: light-dark(#f6f6f8, #2f2f34);
   --scrim: light-dark(rgb(0 0 0 / 22%), rgb(0 0 0 / 48%));
   --input-border: light-dark(rgb(0 0 0 / 14%), rgb(255 255 255 / 16%));

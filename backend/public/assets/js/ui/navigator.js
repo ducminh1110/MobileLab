@@ -10,7 +10,7 @@ import { setMetricsPolling, resultsOf, loadAll } from "../core/sync.js";
 import { isBooted, isTransitioning, jobTitle, runName } from "../core/models.js";
 import { action, field, contextMenu } from "./dispatch.js";
 import { openMenu } from "./menu.js";
-import { initTreeKeys, toggleRow } from "./tree.js";
+import { initTreeKeys, toggleRow, treeMenuItems } from "./tree.js";
 import { devicesView } from "./nav-devices.js";
 import { testsView, issuesView, reportsView } from "./nav-tests.js";
 import { findView, FIND_SCOPES } from "./nav-find.js";
@@ -49,8 +49,8 @@ function filterHtml() {
   const value = state.ui.filter[key] ?? "";
   const pressed = (id) => (id === "booted" ? prefs.onlyBooted : id === "recent" ? prefs.recentOnly[nav] : prefs.failedOnly[nav]);
   return html`<div class="nf">
-    ${cfg.add ? html`<button type="button" class="nf-add" data-action="nav-add" title="${cfg.add.label}" aria-label="${cfg.add.label}">${icon("plus", "ic-14")}</button>` : html`<span class="nf-add-space"></span>`}
-    <label class="nf-field">
+    ${cfg.add ? html`<button type="button" class="nf-add" data-action="nav-add" title="${cfg.add.label}" aria-label="${cfg.add.label}">${icon("plus", "ic-16")}</button>` : html`<span class="nf-add-space"></span>`}
+    <label class="nf-field glass glass-capsule glass-field" data-glass-shape="capsule">
       <span class="nf-icon">${icon("line.3.horizontal.decrease.circle", "ic-14")}</span>
       <input type="text" class="nf-input" data-key="nf-input" data-scope="filter" data-field="filter" value="${value}" placeholder="${cfg.placeholder || "Filter"}" aria-label="Filter ${nav}" autocomplete="off" spellcheck="false">
       ${value ? html`<button type="button" class="nf-clear" data-action="filter-clear" aria-label="Clear filter" title="Clear">${icon("xmark.circle.fill", "ic-12")}</button>` : ""}
@@ -188,9 +188,13 @@ export function initNavigator() {
     requestAnimationFrame(() => tab.parentElement.querySelectorAll('[role="tab"]')[next]?.focus());
   });
 
-  contextMenu("device", ({ el, point }) => openDeviceMenu(el.dataset.id, point));
-  contextMenu("job", ({ el, point }) => openJobMenu(el.dataset.id, point));
-  contextMenu("run", ({ el, point }) => openRunMenu(el.dataset.id, point));
+  contextMenu("device", ({ el, point }) => openDeviceMenu(el.dataset.id, point, undefined, treeMenuItems(el)));
+  contextMenu("job", ({ el, point }) => openJobMenu(el.dataset.id, point, undefined, treeMenuItems(el)));
+  contextMenu("run", ({ el, point }) => openRunMenu(el.dataset.id, point, undefined, treeMenuItems(el)));
+  contextMenu("group", ({ el, point }) => {
+    const items = treeMenuItems(el);
+    if (items.length) openMenu({ items, point, label: "Group" });
+  });
 }
 
 // ---------------------------------------------------------------- context menus
@@ -214,9 +218,11 @@ export function deviceMenuItems(id) {
   ];
 }
 
-export function openDeviceMenu(id, point, anchor) {
+const withTree = (items, extra) => (extra && extra.length ? [...items, { separator: true }, ...extra] : items);
+
+export function openDeviceMenu(id, point, anchor, extra) {
   const items = deviceMenuItems(id);
-  if (items.length) openMenu({ items, point, anchor, label: "Simulator", focusFirst: !!anchor });
+  if (items.length) openMenu({ items: withTree(items, extra), point, anchor, label: "Simulator", focusFirst: !!anchor });
 }
 
 export function jobMenuItems(id) {
@@ -237,12 +243,12 @@ export function jobMenuItems(id) {
   ];
 }
 
-export function openJobMenu(id, point, anchor) {
+export function openJobMenu(id, point, anchor, extra) {
   const items = jobMenuItems(id);
-  if (items.length) openMenu({ items, point, anchor, label: jobTitle(jobById(id)), focusFirst: !!anchor });
+  if (items.length) openMenu({ items: withTree(items, extra), point, anchor, label: jobTitle(jobById(id)), focusFirst: !!anchor });
 }
 
-export function openRunMenu(id, point, anchor) {
+export function openRunMenu(id, point, anchor, extra) {
   const run = runById(id);
   if (!run) return;
   const active = ["queued", "running"].includes(run.status);
@@ -253,7 +259,8 @@ export function openRunMenu(id, point, anchor) {
       { label: "Run Again", icon: "play.fill", disabled: active, run: () => runScheme({ scheme: run.scheme }) },
       { label: "Cancel Run", icon: "stop.fill", disabled: !active, run: () => cancelRun(id) },
       { separator: true },
-      { label: "Copy Run ID", icon: "doc.on.doc", run: () => copy(id, "Copied the run ID") }
+      { label: "Copy Run ID", icon: "doc.on.doc", run: () => copy(id, "Copied the run ID") },
+      ...(extra && extra.length ? [{ separator: true }, ...extra] : [])
     ]
   });
 }

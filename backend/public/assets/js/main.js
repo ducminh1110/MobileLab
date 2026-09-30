@@ -1,6 +1,6 @@
 // MobileLab dashboard entry point: wires the modules together and starts the data layer.
 
-import { state, invalidate } from "./core/state.js";
+import { state, prefs, invalidate } from "./core/state.js";
 import { onAuthRequired } from "./core/api.js";
 import { start } from "./core/sync.js";
 import { hooks } from "./core/actions.js";
@@ -16,10 +16,12 @@ import { initSheets, openSheet } from "./ui/sheets.js";
 import { initQuick } from "./ui/quick.js";
 import { initToasts } from "./ui/toasts.js";
 import { startTicker } from "./ui/ticker.js";
+import { initGlass } from "./core/glass.js";
 
 function boot() {
   initDispatch();
   initShell();
+  initGlass({ mode: prefs.glass });
   initToasts();
   initToolbar();
   initNavigator();

@@ -1,7 +1,7 @@
 // Jump bar: grid button, back / forward through what was opened, and a breadcrumb path whose crumbs are
 // popups listing siblings (Xcode's jump bar). Far right: related items (Settings), editor options (Inspector), add.
 
-import { html } from "../core/util.js";
+import { html, keyLabel } from "../core/util.js";
 import { icon } from "../core/icons.js";
 import { patch } from "../core/morph.js";
 import { state, prefs, setPref, select, invalidate, onRender, deviceById, jobById, runById, historyGo, canGoBack, canGoForward } from "../core/state.js";
@@ -85,17 +85,17 @@ let currentCrumbs = [];
 function jumpHtml() {
   currentCrumbs = crumbsFor(state.sel);
   return html`
-    <button type="button" class="jb-btn" data-action="open-quickly" title="Open Quickly" aria-label="Open Quickly">${icon("square.grid.2x2", "ic-14")}</button>
-    <span class="jb-sep"></span>
-    <button type="button" class="jb-btn" data-action="nav-back" ${canGoBack() ? "" : html`disabled`} title="Go Back" aria-label="Go back">${icon("chevron.left", "ic-14")}</button>
-    <button type="button" class="jb-btn" data-action="nav-forward" ${canGoForward() ? "" : html`disabled`} title="Go Forward" aria-label="Go forward">${icon("chevron.right", "ic-14")}</button>
+    <span class="jb-group glass glass-capsule glass-quiet" data-glass-shape="capsule" role="group" aria-label="Editor history">
+      <button type="button" class="jb-btn" data-action="open-quickly" title="Open Quickly (${keyLabel("mod+shift+o")})" aria-label="Open Quickly">${icon("square.grid.2x2", "ic-14")}</button>
+      <button type="button" class="jb-btn" data-action="nav-back" ${canGoBack() ? "" : html`disabled`} title="Go Back (${keyLabel("mod+alt+left")})" aria-label="Go back">${icon("chevron.left", "ic-14")}</button>
+      <button type="button" class="jb-btn" data-action="nav-forward" ${canGoForward() ? "" : html`disabled`} title="Go Forward (${keyLabel("mod+alt+right")})" aria-label="Go forward">${icon("chevron.right", "ic-14")}</button>
+    </span>
     <nav class="crumbs" aria-label="Path">
       ${currentCrumbs.map((c, i) => html`${i ? html`<span class="crumb-sep">${icon("chevron.right", "ic-10")}</span>` : ""}<button type="button" class="crumb${i === currentCrumbs.length - 1 ? " last" : ""}" data-action="crumb" data-arg="${i}" aria-haspopup="menu" aria-expanded="false" data-key="crumb-${i}">${c.icon || ""}<span>${c.label}</span></button>`)}
     </nav>
-    <span class="jb-right">
+    <span class="jb-right glass glass-capsule glass-quiet" data-glass-shape="capsule" role="group" aria-label="Editor options">
       <button type="button" class="jb-btn" data-action="open-settings" title="Related Items: Settings" aria-label="Settings">${icon("arrow.left.arrow.right", "ic-14")}</button>
-      <button type="button" class="jb-btn" data-action="jb-inspector" title="Editor Options: Inspector" aria-label="Toggle inspector">${icon("list.bullet.indent", "ic-14")}</button>
-      <span class="jb-sep"></span>
+      <button type="button" class="jb-btn" data-action="jb-inspector" title="Editor Options: Inspector (${keyLabel("mod+alt+0")})" aria-label="Toggle inspector">${icon("list.bullet.indent", "ic-14")}</button>
       <button type="button" class="jb-btn" data-action="jb-add" title="Add…" aria-label="Add" aria-haspopup="menu">${icon("plus", "ic-14")}</button>
     </span>`;
 }
