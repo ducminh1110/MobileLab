@@ -137,12 +137,18 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          cmake -S linux-app/mobilelab-android -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
+          cmake -S linux-app/mobilelab-android -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DMOBILELAB_PACKAGE_VERSION="${TAG#v}"
           cmake --build build
           ctest --test-dir build --output-on-failure
           cmake --install build --prefix "$PWD/stage/mobilelab-android"
           mkdir -p release-assets
           tar -C stage -czf release-assets/MobileLab-linux-x86_64.tar.gz mobilelab-android
+          # .deb for Debian/Ubuntu: sudo apt install ./MobileLab-linux-amd64.deb
+          (cd build && cpack -G DEB)
+          cp build/mobilelab-android_*_amd64.deb release-assets/MobileLab-linux-amd64.deb
+          dpkg-deb -I release-assets/MobileLab-linux-amd64.deb
       - uses: actions/upload-artifact@v4
         with:
           name: release-assets-linux

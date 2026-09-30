@@ -95,9 +95,13 @@ jobs:
           cmake --install build --prefix "$PWD/stage/mobilelab-android"
           mkdir -p dist
           tar -C stage -czf dist/MobileLab-linux-x86_64.tar.gz mobilelab-android
+          (cd build && cpack -G DEB)
+          cp build/mobilelab-android_*_amd64.deb dist/MobileLab-linux-amd64.deb
 
       - uses: actions/upload-artifact@v4
         with:
           name: MobileLab-linux-x86_64
-          path: dist/MobileLab-linux-x86_64.tar.gz
+          path: |
+            dist/MobileLab-linux-x86_64.tar.gz
+            dist/MobileLab-linux-amd64.deb
           if-no-files-found: error

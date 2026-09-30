@@ -87,6 +87,21 @@ curl http://127.0.0.1:4100/devices
 curl -X POST http://127.0.0.1:4100/runs
 ```
 
+## Install
+
+Download from the [releases page](https://github.com/ducminh1110/MobileLab/releases):
+
+```sh
+# Debian / Ubuntu (Qt 6 and the other libraries come in as dependencies)
+sudo apt install ./MobileLab-linux-amd64.deb
+mobilelab-android            # or start it from the application menu
+
+# any other x86_64 distribution with Qt 6 installed
+tar xzf MobileLab-linux-x86_64.tar.gz && ./mobilelab-android/bin/mobilelab-android
+```
+
+Build the package yourself with `cmake -S . -B build -G Ninja && cmake --build build && (cd build && cpack -G DEB)`.
+
 ## Build
 
 Requires Qt 6 Widgets, Network, Svg and Test (developed against Qt 6.4.2; newer Qt 6 uses `QStyleHints::colorScheme` behind a version check) and CMake 3.20+. Build out of tree:

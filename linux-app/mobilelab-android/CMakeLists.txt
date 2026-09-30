@@ -92,3 +92,18 @@ install(FILES ${MOBILELAB_FONT_DIR}/LICENSE-Inter.txt ${MOBILELAB_FONT_DIR}/OFL-
 install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
 install(FILES packaging/mobilelab-android.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES resources/icons/mobilelab.mark.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME mobilelab-android.svg)
+
+# --- .deb package (cpack -G DEB) -----------------------------------------------------------------
+# Dependencies are read from the binary (dpkg-shlibdeps), so the package stays correct across Qt versions.
+set(MOBILELAB_PACKAGE_VERSION "${PROJECT_VERSION}" CACHE STRING "Version written into the .deb")
+set(CPACK_GENERATOR DEB)
+set(CPACK_PACKAGE_NAME mobilelab-android)
+set(CPACK_PACKAGE_VERSION "${MOBILELAB_PACKAGE_VERSION}")
+set(CPACK_PACKAGING_INSTALL_PREFIX /usr)
+set(CPACK_PACKAGE_CONTACT "MobileLab <noreply@users.noreply.github.com>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Android device lab: AVDs, Waydroid and hybrid test matrices")
+set(CPACK_DEBIAN_PACKAGE_SECTION devel)
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "adb, qt6-qpa-plugins")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+include(CPack)
