@@ -46,7 +46,17 @@ outside the repository (they are Apple's images). Fidelity reviews use the same 
 ```
 
 * Three vertical regions; the navigator and inspector collapse independently, the debug area collapses
-  under the editor. Dividers are 1px and draggable (hit area 7px), sizes persist per user.
+  under the editor. **Xcode 26 look on the web:** a soft tinted window (`win-a/b/c`) with the navigator, the editor
+  card and the inspector as floating rounded panels (8px margins, 14px radius, subtle shadow); toolbar, tab bars,
+  filter bars, jump bar controls and canvas bar are Liquid Glass (`liquid-glass.md`). Dividers are the 8px gap between
+  panels (a slim line shows on hover), draggable, sizes persist per user. Dragging a divider past its minimum (56px
+  beyond for the sides, 44px for the debug area) snaps the panel closed with an animation and commits on release;
+  double click or Enter on a divider collapses it; toolbar buttons, the shortcuts below and the small buttons in the
+  debug bar (bottom corners of the editor) bring it back. Collapsing animates the grid tracks (about 260ms, none with
+  `prefers-reduced-motion`), the panel keeps its width and slides out, collapsed panels are `inert`, focus that was
+  inside a collapsing panel moves to the editor, and a panel opened with its shortcut takes focus. The debug area
+  collapses to its 28px bar (a status strip: show button at the left corner, `State | detail`, toggle at the right
+  corner). Toggles expose `aria-expanded` / `aria-controls` and a tooltip with the shortcut.
 * Density matches Xcode at 1x: navigator rows **22px**, editor gutter rows **17px** (12px mono), inspector rows
   **22px**, toolbar controls **28px** high, capsule **34px** high, jump bar **28px**.
 * Minimum window: 1000 x 640. Below 900px wide the web dashboard switches to a single pane: the navigator
@@ -73,7 +83,7 @@ Values were sampled from the reference screenshots and Xcode's default themes; k
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| `window` (behind everything, toolbar) | `#f5f5f7` | `#2a2a2d` |
+| `window` (behind everything, toolbar) | `#f5f5f7` | `#2a2a2d` (the web dashboard paints a tinted gradient `win-a/b/c` instead, see section 1) |
 | `sidebar` (navigator, inspector) | `#f3f5f7` | `#262629` |
 | `editor` | `#ffffff` | `#1f1f24` |
 | `gutter` | `#fbfbfc` | `#1f1f24` |
@@ -166,7 +176,8 @@ A tab bar of icons (44px high, 8px gap) selects one of six navigators. Each has 
 (`line.3.horizontal.decrease.circle` + text field + recent/failed toggle), like Xcode's. Rows are 22px,
 16px icon, 6px gap, disclosure triangles for groups, indentation 14px per level, selected row is a rounded
 (6px) rectangle in `selection` (or `selection-focused` with `accent-text` while the navigator has focus).
-Trees are real trees: arrow keys move / expand / collapse, Return opens, Space previews.
+Trees are real trees: arrow keys move / expand / collapse, Return opens, Space previews. Disclosure triangles rotate
+(animated); the context menu of every group offers *Expand*, *Collapse*, *Expand All* and *Collapse All*.
 
 | # | Tab (icon) | Content and data source |
 | --- | --- | --- |
@@ -265,7 +276,8 @@ authoritative list per platform.
 | Action | macOS / Linux app | Web |
 | --- | --- | --- |
 | Run / Stop | `Cmd R` / `Cmd .` (Linux `Ctrl R` / `Ctrl .`) | `Ctrl/Cmd Enter` / `Ctrl/Cmd .` |
-| Toggle navigator / inspector / debug area | `Cmd 0` / `Cmd Opt 0` / `Cmd Shift Y` | `Ctrl/Cmd Shift 0` / `Ctrl/Cmd Alt 0` / `Ctrl/Cmd Shift Y` |
+| Toggle navigator / inspector / debug area | `Cmd 0` / `Cmd Opt 0` / `Cmd Shift Y` | `Ctrl/Cmd 0` (also `Shift 0`, for browsers that keep `Ctrl 0`) / `Ctrl/Cmd Alt 0` / `Ctrl/Cmd Shift Y` |
+| Go back / forward in the editor history (jump bar arrows) | `Ctrl Cmd Left` / `Right` | `Ctrl/Cmd Alt Left` / `Right` |
 | Navigator tabs 1 to 6 | `Cmd 1` to `Cmd 6` | `Ctrl/Cmd Shift 1` to `6` |
 | Open Quickly (fuzzy jump to any device, run, job or test) | `Cmd Shift O` | `Ctrl/Cmd Shift O` |
 | New simulator | `Cmd N` | `Ctrl/Cmd Alt N` |

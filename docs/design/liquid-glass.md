@@ -106,23 +106,48 @@ Defaults to start from (tune against the reference screenshots): refraction 0.69
 
 ## Web implementation
 
-* No dependencies, no CDN, CSP-clean (no inline `style=` in markup; set variables through CSSOM).
-* Material = CSS. `backdrop-filter: blur() saturate() url(#lg-<shape>)` where the SVG filter contains an
-  `feImage` displacement map plus `feDisplacementMap`. Displacement maps are generated at runtime with a small
-  canvas routine (SDF, normal, intensity profile above encoded as R/G around 128), cached per size and radius,
-  and attached as data URLs (allowed by our `img-src data:`). Chromium honours SVG filters in `backdrop-filter`;
-  Safari and Firefox ignore the `url()` part, so the rule must be written so the **fallback (blur + saturate +
-  tint + rim) is complete and good on its own**, with the refraction as a progressive enhancement
-  (`@supports`/feature test in JS, set `data-glass="refract"` or `"blur"` on the root).
-* Rim, sheen, shadows = layered gradients and inset shadows on the element and a `::before`/`::after`.
-* API: one tiny module (`glass.js`) with `attachGlass(el, { shape: "capsule"|"circle"|"round", radius, ... })`,
-  a ResizeObserver that regenerates the map when the size changes, and CSS custom properties for every
-  parameter. Plain CSS classes (`.glass`, `.glass-capsule`, `.glass-circle`, `.glass-clear`) for the
-  common cases.
-* `prefers-reduced-transparency` and `prefers-contrast: more` switch to opaque surfaces. `prefers-color-scheme`
-  swaps the tint and rim colours. A Settings toggle "Liquid Glass: On / Reduced" mirrors macOS.
-* Performance: at most about 15 glass elements on screen, maps cached and shared by size, no animation of
-  `backdrop-filter` parameters, `will-change` only while pressing.
+Files: `backend/public/assets/js/core/glass.js` (maths, maps, SVG filters, detection, `attachGlass`) and
+`assets/css/glass.css` (the material and its fallbacks). No dependencies, no CDN, CSP-clean (no inline `style=`,
+custom properties through the CSSOM, maps as `data:` URLs, the filters in one hidden inline `<svg>`).
+
+* **Levels.** `<html data-glass>` is `refract` (Chromium: SVG filters work inside `backdrop-filter`), `blur` (Safari,
+  Firefox, or forced: blur + saturate + tint gradient + rim + sheen, complete on its own) or `off` (opaque surfaces:
+  Settings "Reduced", `prefers-reduced-transparency`, `prefers-contrast: more`, or no `backdrop-filter`). Detection is
+  `CSS.supports("backdrop-filter")` plus a Chromium check plus SVG displacement support. `?glass=refract|blur|off`
+  forces a level (screenshots, tests). Settings > General > Liquid Glass: On / Reduced, stored in the `glass` pref.
+* **Material (CSS).** `.glass` = backdrop blur + saturate + tint gradient (lighter on top) + `::before` specular sheen +
+  `::after` 1px rim light (mask-composite ring, bright at the top left) + inner glow + two-part shadow (contact + soft).
+  Variants: `.glass-capsule`, `.glass-circle`, `.glass-white` (the toolbar capsule), `.glass-quiet` (jump bar and canvas
+  bar controls: almost clear), `.glass-field` (filter fields), `.glass-menu` and `.glass-sheet` (text surfaces: more tint,
+  more blur), `.glass-lift`, and `.glass-group` with `.gbtn` buttons (one glass shape, several buttons, hairline dividers,
+  hover, pressed `aria-expanded`, press scale 0.96 with flattened tint).
+* **Refraction (JS).** Per glass element, on size change (ResizeObserver, rAF-throttled): a canvas draws the vector map
+  from the bevel height field (section "Second reference"), encoded R/G around 128 (`feDisplacementMap`, scale = 2 x
+  peak). Displacement always points *into* the box (the backdrop exists only there), soft-clamped before the medial
+  axis, and the field is extended outward at rim strength so the map has no seam. Maps and filters are cached and shared
+  per size class; an element that resizes swaps its filter (refcounted). At most about 15 glass elements are on screen
+  (`glassCount()`); elements above 720px on a side are blurred only.
+* **Options** (`attachGlass(el, opts)` or `data-glass-*`): `shape` capsule | circle | round, `radius`, `refraction`
+  (0.69), `zRadius` (40, clamped to half the short side), `pull` (4), `chroma` (0: three displacement passes at
+  scales 1+c, 1, 1-c recombined with `feBlend screen`), `frost` (0: blur px of the interior; the rim band, `band` px,
+  stays sharp and refracted through an edge-weight map and `feComposite arithmetic`), `bevel` pill | dome, `refract`
+  (false keeps blur only), `blur` and `saturate`.
+* **Used where.** Refraction only (default) on toolbar groups, capsule, tab pills, filter fields, jump bar and canvas bar
+  groups; frost + chromatic aberration on menus, popovers and sheets (text surfaces keep a sharp refracted rim of 9 to
+  10px and a heavily blurred, opaque-ish interior); frost on toasts; the Jump to end pill.
+* **Divider drags.** `glassBusy(true)` pauses refraction while a divider is dragged (the filter is dropped from the
+  cascade through `html[data-glass-busy]`, blur stays) so panels resizing under glass never regenerate maps per frame;
+  refraction returns on release. `?glassbusy=0` disables the pause (used to measure its effect).
+* **What was adopted from the second reference and what was not.** Adopted: the half-circle bevel height field and
+  normals from the SDF gradient, dual-surface refraction with ior 1.5 folded into one strength, the centre pull, the
+  dome variant, optional chromatic aberration (per-channel scales of the same map), edge-weighted blur (sharp rim,
+  frosted interior), the top-biased 1.5px rim, inner glow, Fresnel-like edge brightening, two-part shadow, press
+  flatten. Dropped: the WebGL2 path (a browser cannot sample live DOM content into a texture without a snapshot
+  library, which we refuse: stale and a dependency), the micro-distortion noise (cost, no visible gain), the Blinn-Phong
+  specular lobes (approximated by the CSS sheen because the normal is only available per pixel in a shader), glass
+  seeing glass in its refraction (`backdrop-filter` of nested elements sees the lower glass already, for free).
+  Not possible with `backdrop-filter`: sampling *outside* the element's box (the real lens shows the surroundings
+  pulled in at the rim; ours pulls the content from inside, which reads the same at small sizes).
 
 ## Qt (Linux) implementation
 
