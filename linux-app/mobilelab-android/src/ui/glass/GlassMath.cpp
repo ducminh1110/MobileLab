@@ -109,8 +109,8 @@ ShapeTable::ShapeTable(int w, int h, float radius, const Params &p)
                 ry *= cap / mag;
                 mag = cap;
             }
-            // the refracted / sharp band is only the outer few pixels of the bevel: the interior stays calm frost
-            const float edge = 1.f - smooth(0.f, std::min(maxD * 0.35f, zR), inside);
+            // the refracted / sharp band hugs the bevel; the deep interior stays calm frost
+            const float edge = 1.f - smooth(0.f, std::min(maxD * 0.35f, zR * 1.3f), inside);
             // surface normal N = normalize(-grad h, 1)
             const float invN = 1.f / std::sqrt(1.f + slope * slope);
             const float Nx = -gx * invN, Ny = -gy * invN, Nz = invN;   // screen coords (y down)
@@ -131,15 +131,21 @@ ShapeTable::ShapeTable(int w, int h, float radius, const Params &p)
             const float fres = std::pow(1.f - std::fabs(Nz), 4.f) * p.fresnel;
             const float Ny_up = -Ny;                                    // lights are specified with y up
             auto dot3 = [&](const std::array<float, 3> &v) { return Nx * v[0] + Ny_up * v[1] + Nz * v[2]; };
-            const float sp1 = std::pow(std::max(dot3(H1), 0.f), 90.f);
-            const float sp2 = std::pow(std::max(dot3(H2), 0.f), 50.f) * 0.3f;
+            const float sp1 = std::pow(std::max(dot3(H1), 0.f), 22.f);
+            const float sp2 = std::pow(std::max(dot3(H2), 0.f), 18.f) * 0.3f;
             const float spB = std::pow(std::max(dot3(L3), 0.f), 6.f) * 0.1f;
-            const float sp4 = std::pow(std::max(dot3(H4), 0.f), 120.f) * 0.6f;
-            const float totalSpec = (sp1 + sp2 + spB * 0.f + sp4) * p.specular * (0.4f + 0.6f * (0.5f + 0.5f * (-py / std::max(halfY, 1.f))));
-            // Light layers are restrained: specular lobes live on the bevel normals (outer pixels only) and there is
-            // no wide rim / glow term. The 1px rim stroke is drawn by the renderer, once, so there is no double border.
-            const float env = (Ny_up * 0.5f + 0.5f) * fres * 0.05f;
-            t.add = q8(totalSpec + env);
+            const float sp4 = std::pow(std::max(dot3(H4), 0.f), 28.f) * 0.5f;
+            const float topBias = 0.5f + 0.5f * (-py / std::max(halfY, 1.f));
+            const float onBevel = smooth(0.03f, 0.4f, 1.f - Nz);   // lobes only where the surface is tilted: the flat interior does not shine
+            const float totalSpec = (sp1 + sp2 + spB * 0.3f + sp4) * p.specular * onBevel;
+            // Light layers: specular lobes on the bevel normals, a smooth top-biased inner glow that falls off within a few
+            // pixels (no wide muddy halo), a faint edge lift and the environment term. The 1px rim stroke is drawn by the
+            // renderer as a single fading gradient, so there is no second inner line.
+            const float env = (Ny_up * 0.5f + 0.5f) * fres * 0.08f;
+            const float g = 1.f - smooth(0.f, 6.f * S, inside);
+            const float glow = g * g * p.edgeHighlight * 0.20f * (0.35f + 0.65f * topBias);
+            const float rim = edge * p.edgeHighlight * 0.06f;
+            t.add = q8(totalSpec + glow + rim + env);
             t.wmix = q8(fres);  // mixed towards white by 0.2 * fresnel when rendering
         }
     }
@@ -222,7 +228,7 @@ QImage shadowAlpha(int w, int h, float radius, int margin, float spread, float o
     // tight, low shadow. `spread` is the blur of the second layer in px, `offsetY` its offset; the stored alpha is
     // normalised by 0.25 (the caller multiplies by the real strength, 0.25 in light mode).
     const float B = std::max(spread, 1.f), B1 = std::max(0.75f, std::min(1.5f, B * 0.4f));
-    const float off1 = offsetY * 0.35f, sh2 = -B * 0.33f;
+    const float off1 = offsetY * 0.35f, sh2 = -B * 0.15f;
     for (int y = 0; y < img.height(); ++y) {
         uchar *line = img.scanLine(y);
         for (int x = 0; x < img.width(); ++x) {

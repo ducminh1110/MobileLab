@@ -188,7 +188,7 @@ void MainWindow::connectCore() {
 void MainWindow::paintEvent(QPaintEvent *) {
     const Tokens &t = tk();
     QPainter p(this);
-    // Same soft 155deg three-stop tint as the web dashboard (no coloured blobs): the glass only needs a calm backdrop.
+    // Soft 155deg three-stop tint (same stops as the web dashboard) plus two faint blobs.
     const qreal rad = 155.0 * M_PI / 180.0, dx = std::sin(rad), dy = -std::cos(rad);
     const qreal len = std::abs(width() * dx) + std::abs(height() * dy);
     const QPointF c(width() / 2.0, height() / 2.0), d(dx * len / 2, dy * len / 2);
@@ -197,6 +197,15 @@ void MainWindow::paintEvent(QPaintEvent *) {
     g.setColorAt(0.48, t.windowMid);
     g.setColorAt(1, t.windowBottom);
     p.fillRect(rect(), g);
+    // a little coloured light behind the panels: something for the glass to refract
+    QRadialGradient a(width() * 0.18, -height() * 0.05, width() * 0.6);
+    a.setColorAt(0, t.blobA);
+    a.setColorAt(1, Qt::transparent);
+    p.fillRect(rect(), a);
+    QRadialGradient b(width() * 0.92, height() * 1.02, width() * 0.5);
+    b.setColorAt(0, t.blobB);
+    b.setColorAt(1, Qt::transparent);
+    p.fillRect(rect(), b);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *e) {

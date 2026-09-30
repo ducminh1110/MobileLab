@@ -54,6 +54,7 @@ struct Material {
     // rimLight/rimLo: the 1px rim gradient (bright top left, dim elsewhere); rimDark: the hairline edge under it
     // (one pixel, same as the rim, so there is a single border, not two).
     QColor tintTop, tintBottom, rimLight, rimLo, rimDark, opaque;
+    bool sheenInFallback = false; // draw the sheen even without a backdrop (accent circle)
     float sheen = 0.f;           // faint highlight hugging the top edge, 0..1
     float blurTintBoost = 1.28f; // Blur level (no refraction) uses a more opaque tint
     float lightScale = 1.f;

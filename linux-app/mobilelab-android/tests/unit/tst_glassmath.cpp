@@ -176,7 +176,7 @@ private slots:
         QCOMPARE(a.height(), H + 2 * M);
         auto at = [&](int x, int y) { return qAlpha(a.pixel(x, y)); };
         QCOMPARE(at(M + W / 2, M + H / 2), 0);                        // under the glass: nothing
-        QVERIFY(at(M + W / 2, M + H + 1) > 60);                        // just below the shape
+        QVERIFY(at(M + W / 2, M + H + 1) > 30);   // low alpha, tight: about 0.10 x the 0.25 normalisation                        // just below the shape
         QVERIFY(at(M + W / 2, M + H + 1) > at(M + W / 2, M - 2));      // offset down: bottom stronger than top
         QVERIFY(at(M + W / 2, M + H + 1) > at(M + W / 2, M + H + 9));  // falls off outwards
         QCOMPARE(at(0, 0), 0);                                        // corner far away
