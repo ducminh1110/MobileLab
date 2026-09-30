@@ -25,8 +25,9 @@ public:
     using Callback = std::function<void(const Result &)>;
 
     // The callback runs on the owner's thread. It is not called if the process was aborted.
+    // `input` is written to stdin and the channel is closed (used to answer avdmanager's prompt).
     static AsyncProcess *run(QObject *owner, const QString &program, const QStringList &args,
-                             int timeoutMs, Callback cb);
+                             int timeoutMs, Callback cb, const QByteArray &input = {});
     void abort();
     ~AsyncProcess() override;
 

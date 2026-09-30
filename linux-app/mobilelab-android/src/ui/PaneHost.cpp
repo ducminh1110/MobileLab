@@ -1,4 +1,5 @@
 #include "PaneHost.h"
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -30,8 +31,10 @@ void Panel::paintEvent(QPaintEvent *) {
 PaneHandle::PaneHandle(PaneHost *host, int id, QWidget *parent) : QWidget(parent), m_host(host), m_id(id) {
     setAttribute(Qt::WA_Hover, true);
     setMouseTracking(true);
-    setAccessibleName(host->spec(id).name + " resize handle");
-    setToolTip("Drag to resize, double-click to hide");
+    setAccessibleName(host->spec(id).name + " divider");
+    setAccessibleDescription("Arrow keys resize, Enter collapses or expands");
+    setFocusPolicy(Qt::TabFocus);
+    setToolTip("Drag to resize, double-click or press Enter to collapse");
 }
 
 void PaneHandle::mousePressEvent(QMouseEvent *e) {
@@ -61,8 +64,50 @@ void PaneHandle::mouseDoubleClickEvent(QMouseEvent *) {
     m_host->toggle(m_id);
 }
 
+void PaneHandle::focusInEvent(QFocusEvent *e) {
+    m_kbFocus = e->reason() == Qt::TabFocusReason || e->reason() == Qt::BacktabFocusReason;
+    QWidget::focusInEvent(e);
+    update();
+}
+
+void PaneHandle::focusOutEvent(QFocusEvent *e) {
+    m_kbFocus = false;
+    QWidget::focusOutEvent(e);
+    update();
+}
+
+void PaneHandle::keyPressEvent(QKeyEvent *e) {
+    const bool horizontal = property("horizontal").toBool();
+    const bool leading = property("leading").toBool();
+    const int step = (e->modifiers() & Qt::ShiftModifier) ? 48 : 16;
+    if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space) {
+        m_host->toggle(m_id);
+        return;
+    }
+    int delta = 0;
+    if (horizontal && e->key() == Qt::Key_Left) delta = -step;
+    else if (horizontal && e->key() == Qt::Key_Right) delta = step;
+    else if (!horizontal && e->key() == Qt::Key_Up) delta = -step;
+    else if (!horizontal && e->key() == Qt::Key_Down) delta = step;
+    if (delta) {
+        m_host->dragPane(m_id, m_host->paneSize(m_id) + (leading ? delta : -delta));
+        m_host->endDrag(m_id);
+        return;
+    }
+    QWidget::keyPressEvent(e);
+}
+
 void PaneHandle::paintEvent(QPaintEvent *) {
     if (Glass::suppressed()) return;
+    if (m_kbFocus && hasFocus()) {
+        QPainter fp(this);
+        fp.setRenderHint(QPainter::Antialiasing);
+        fp.setPen(Qt::NoPen);
+        fp.setBrush(Ui::withAlpha(tk().accent, 170));
+        const bool hz = property("horizontal").toBool();
+        if (hz) fp.drawRoundedRect(QRectF(width() / 2.0 - 2, 8, 4, height() - 16), 2, 2);
+        else fp.drawRoundedRect(QRectF(8, height() / 2.0 - 2, width() - 16, 4), 2, 2);
+    }
     if (property("divider").toBool()) {
         QPainter p(this);
         p.setPen(tk().divider);
@@ -122,7 +167,10 @@ void PaneHost::setPaneSize(int id, int px) {
     layoutPanes();
 }
 
-int PaneHost::currentSize(int id) const { return int(std::lround(m_panes[id].size * m_panes[id].t)); }
+int PaneHost::currentSize(int id) const {
+    const auto &p = m_panes[id];
+    return p.spec.collapsedSize + int(std::lround((p.size - p.spec.collapsedSize) * p.t));
+}
 
 void PaneHost::setShown(int id, bool shown, bool animate) {
     auto &s = m_panes[id];
@@ -156,7 +204,7 @@ void PaneHost::animateTo(int id, qreal target, bool animate) {
 
 void PaneHost::dragPane(int id, int raw) {
     auto &s = m_panes[id];
-    const int snapDistance = int(s.spec.minSize * 0.35);
+    const int snapDistance = s.spec.snap;
     if (raw < s.spec.minSize - snapDistance) {
         if (s.shown) setShown(id, false, true);   // snap closed
     } else {
@@ -186,14 +234,14 @@ void PaneHost::layoutPanes() {
     QVector<int> eff(m_panes.size());
     int used = 0, gaps = 0;
     for (int i = 0; i < m_panes.size(); ++i) {
-        eff[i] = int(std::lround(m_panes[i].size * m_panes[i].t));
+        eff[i] = currentSize(i);
         if (eff[i] > 0) { used += eff[i]; gaps += int(std::lround(gap * m_panes[i].t)); }
     }
     const int avail = total - 2 * margin - gaps;
     int overflow = m_centerMin - (avail - used);
     for (int pass = 0; overflow > 0 && pass < 2; ++pass) {
         for (int i = m_panes.size() - 1; i >= 0 && overflow > 0; --i) {
-            const int minEff = int(std::lround(m_panes[i].spec.minSize * m_panes[i].t));
+            const int minEff = m_panes[i].spec.collapsedSize + int(std::lround((m_panes[i].spec.minSize - m_panes[i].spec.collapsedSize) * m_panes[i].t));
             const int give = qMin(overflow, qMax(0, eff[i] - minEff));
             eff[i] -= give;
             overflow -= give;
@@ -206,7 +254,7 @@ void PaneHost::layoutPanes() {
         if (s.side != Side::Leading) continue;
         const int g = int(std::lround(gap * s.t));
         const int sz = eff[i];
-        const bool vis = sz > 0 || s.t > 0.001;
+        const bool vis = sz > 0;
         s.w->setVisible(vis);
         s.handle->setVisible(vis && s.shown);
         if (horiz) s.w->setGeometry(lead, margin, sz, cross - (m_floating ? 2 * margin : 0));
@@ -221,7 +269,7 @@ void PaneHost::layoutPanes() {
         if (s.side != Side::Trailing) continue;
         const int g = int(std::lround(gap * s.t));
         const int sz = eff[i];
-        const bool vis = sz > 0 || s.t > 0.001;
+        const bool vis = sz > 0;
         s.w->setVisible(vis);
         s.handle->setVisible(vis && s.shown);
         trail -= sz;

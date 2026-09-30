@@ -243,3 +243,18 @@ void AndroidEmulator::findSerialAsync(QObject *owner, const QString &avdName, st
         (*step)(0);
     });
 }
+
+void AndroidEmulator::createAvdAsync(QObject *owner, const QString &name, const QString &packageName, const QString &device,
+                                     std::function<void(bool, const QString &)> done) {
+    if (!QFileInfo::exists(m_avdManager)) {
+        done(false, "avdmanager was not found at " + m_avdManager + ". Install cmdline-tools (sdkmanager \"cmdline-tools;latest\").");
+        return;
+    }
+    AsyncProcess::run(owner, m_avdManager, {"create", "avd", "-n", name, "-k", packageName, "-d", device, "--force"}, 120000,
+                      [done](const AsyncProcess::Result &r) {
+                          const QString out = (r.text() + "\n" + r.errText()).trimmed();
+                          if (r.timedOut) done(false, "avdmanager timed out after 120 s");
+                          else if (!r.started) done(false, "avdmanager could not be started");
+                          else done(r.ok(), out);
+                      }, "no\n");
+}

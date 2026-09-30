@@ -12,7 +12,7 @@ QImage renderPopupMaterial(QWidget *underWindow, const QRect &globalRect, qreal 
     QImage crop;
     QPoint origin;
     if (lvl != Glass::Level::Off && underWindow && underWindow->isVisible()) {
-        const int mDev = Glass::backdropMargin(mat, lvl, dpr);
+        const int mDev = Glass::marginFor(mat, dpr, lvl, w, h, radius * dpr);
         const int mLog = int(std::ceil(mDev / dpr));
         const QPoint tl = underWindow->mapFromGlobal(globalRect.topLeft());
         // What is visible right now (glass included): the popup floats above it.

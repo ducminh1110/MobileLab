@@ -29,3 +29,9 @@ QString elide(const QFont &f, const QString &s, int width, Qt::TextElideMode mod
 // Fixed-height status dot colours: running, booting, stopped, error.
 QColor statusColor(const QString &state, const Tokens &t);
 }  // namespace Ui
+
+namespace Ui {
+// Fuzzy subsequence match for Open Quickly: -1 when `pattern` is not a subsequence of `text`, otherwise a score
+// (higher is better): consecutive characters, word starts and a match at the beginning are rewarded.
+int fuzzyScore(const QString &pattern, const QString &text);
+}

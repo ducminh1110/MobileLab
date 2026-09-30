@@ -24,7 +24,10 @@ enum {
     Loc,                      // QVariant(Location)
     Expand,                   // bool: expanded the first time it is seen
     Dim,                      // bool: greyed
-    Bold                      // bool
+    Bold,                     // bool
+    Square,                   // QString: letter drawn in a coloured badge square instead of an icon (variables view)
+    SquareColor,              // QColor
+    SubMono                   // bool: secondary text in the mono face (variable values)
 };
 }
 
@@ -46,9 +49,9 @@ class NavTree;
 class NavDelegate : public QStyledItemDelegate {
     Q_OBJECT
 public:
-    explicit NavDelegate(NavTree *tree) : QStyledItemDelegate(tree), m_tree(tree) {}
+    NavDelegate(QObject *parent, NavTree *tree) : QStyledItemDelegate(parent), m_tree(tree) {}
     void paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &idx) const override;
-    QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override { return QSize(100, Metrics::navRow); }
+    QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override;
 private:
     NavTree *m_tree;
 };
@@ -72,6 +75,9 @@ public:
     QStandardItemModel *source() const { return m_model; }
     int visibleRows() const;
     void setShowSkeleton(bool on) { m_skeleton = on; viewport()->update(); }
+    // Variables-view density: 20px rows, 11.5px text.
+    void setCompact(bool on);
+    bool compact() const { return m_compact; }
 
 signals:
     void locationRequested(const Location &loc);
@@ -106,7 +112,9 @@ private:
     QSet<QString> m_seen;
     QTimer m_spinTimer;
     qreal m_spin = 0;
-    bool m_skeleton = false, m_silent = false, m_spinning = false, m_mouseSelect = false;
+    bool m_skeleton = false, m_silent = false, m_spinning = false, m_mouseSelect = false, m_compact = false;
+    QHash<QString, qreal> m_arrow;              // animated disclosure angle 0..1 per item id
+    void animateArrow(const QModelIndex &idx, bool open);
 };
 
 // Tab bar of the navigator: a glass pill with icon buttons and an accent circle behind the selected one.
@@ -121,6 +129,8 @@ public:
     QSize sizeHint() const override { return QSize(280, Metrics::navTabBar - 4); }
     void paintContent(QPainter &p, const QRect &shape) override;
     IconButton *tabButton(int i) const { return m_buttons.value(i); }
+    // Small count pill on a tab (issues). count 0 hides it.
+    void setBadge(int tab, int count, const QColor &color);
 signals:
     void currentChanged(int index);
 protected:
@@ -134,4 +144,5 @@ private:
     int m_current = 0;
     qreal m_circleX = -1;
     QVariantAnimation *m_anim = nullptr;
+    QHash<int, QPair<int, QColor>> m_badges;
 };

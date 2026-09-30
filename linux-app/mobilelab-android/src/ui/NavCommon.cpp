@@ -6,6 +6,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
+#include "GlassMenu.h"
 #include "Icons.h"
 #include "UiUtil.h"
 
@@ -29,6 +30,8 @@ bool NavFilterProxy::filterAcceptsRow(int row, const QModelIndex &parent) const 
 
 // --- NavDelegate --------------------------------------------------------------------------------------
 
+QSize NavDelegate::sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const { return QSize(100, m_tree->compact() ? 20 : Metrics::navRow); }
+
 void NavDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &idx) const {
     const Tokens &t = tk();
     p->save();
@@ -43,7 +46,18 @@ void NavDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QMod
     const int right = r.right() - 8;
     const QString status = idx.data(NavRole::Status).toString();
     const QString icon = idx.data(NavRole::Icon).toString();
-    if (!icon.isEmpty()) {
+    const QString square = idx.data(NavRole::Square).toString();
+    if (!square.isEmpty()) {
+        const QColor sc = idx.data(NavRole::SquareColor).value<QColor>();
+        const QRectF sq(x + 1, r.center().y() - 7, 14, 14);
+        p->setPen(Qt::NoPen);
+        p->setBrush(sc.isValid() ? sc : t.textTertiary);
+        p->drawRoundedRect(sq, 3.5, 3.5);
+        p->setFont(Theme::instance().ui(9, QFont::Bold));
+        p->setPen(Qt::white);
+        p->drawText(sq, Qt::AlignCenter, square);
+        x += 16 + 6;
+    } else if (!icon.isEmpty()) {
         QColor ic = idx.data(NavRole::IconColor).value<QColor>();
         if (!ic.isValid()) ic = onAccent ? t.accentText : t.textSecondary;
         else if (onAccent) ic = t.accentText;
@@ -88,7 +102,8 @@ void NavDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QMod
     }
     // title + sub
     const bool bold = idx.data(NavRole::Bold).toBool();
-    QFont f = Theme::instance().ui(13, bold ? QFont::DemiBold : QFont::Normal);
+    QFont f = m_tree->compact() ? Theme::instance().mono(11.5, bold ? QFont::Medium : QFont::Normal) : Theme::instance().ui(13, bold ? QFont::DemiBold : QFont::Normal);
+    if (m_tree->compact()) f.setPixelSize(12);
     p->setFont(f);
     const QString title = idx.data(Qt::DisplayRole).toString();
     const QString sub = idx.data(NavRole::Sub).toString();
@@ -111,7 +126,7 @@ void NavDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QMod
     if (!sub.isEmpty()) {
         const int tw = fm.horizontalAdvance(shown) + 6;
         if (tw < avail - 20) {
-            QFont sf = Theme::instance().ui(12);
+            QFont sf = idx.data(NavRole::SubMono).toBool() ? Theme::instance().mono(11) : Theme::instance().ui(12);
             p->setFont(sf);
             p->setPen(fg2);
             p->drawText(QRect(x + tw, r.top(), avail - tw, r.height()), Qt::AlignVCenter | Qt::AlignLeft,
@@ -128,7 +143,7 @@ NavTree::NavTree(QWidget *parent) : QTreeView(parent) {
     m_model = new QStandardItemModel(this);
     m_proxy->setSourceModel(m_model);
     setModel(m_proxy);
-    setItemDelegate(new NavDelegate(this));
+    setItemDelegate(new NavDelegate(this, this));
     setHeaderHidden(true);
     setUniformRowHeights(true);
     setIndentation(14);
@@ -159,6 +174,8 @@ NavTree::NavTree(QWidget *parent) : QTreeView(parent) {
     });
     connect(&Theme::instance(), &Theme::changed, this, [this] { viewport()->update(); });
     connect(&Theme::instance(), &Theme::motionChanged, this, &NavTree::updateSpin);
+    connect(this, &QTreeView::expanded, this, [this](const QModelIndex &i) { animateArrow(i, true); });
+    connect(this, &QTreeView::collapsed, this, [this](const QModelIndex &i) { animateArrow(i, false); });
     connect(this, &QTreeView::activated, this, [this](const QModelIndex &i) {
         const Location l = locationOf(i);
         if (l.kind != Location::Welcome || !i.data(NavRole::Loc).isValid()) emit locationRequested(l);
@@ -336,7 +353,29 @@ void NavTree::drawBranches(QPainter *p, const QRect &rect, const QModelIndex &id
     const bool sel = selectionModel()->isSelected(idx);
     const QColor c = (sel && hasFocus()) ? t.accentText : t.textTertiary;
     const int cell = 14;
-    Icons::paint(p, isExpanded(idx) ? "chevron.down" : "chevron.right", QRectF(rect.right() - cell + 1, rect.center().y() - 5, 10, 10), c);
+    const QString id = idx.data(NavRole::Id).toString();
+    const qreal open = m_arrow.contains(id) ? m_arrow.value(id) : (isExpanded(idx) ? 1.0 : 0.0);
+    p->save();
+    p->translate(rect.right() - cell + 1 + 5, rect.center().y());
+    p->rotate(open * 90.0);       // right-pointing chevron rotates down
+    Icons::paint(p, "chevron.right", QRectF(-5, -5, 10, 10), c);
+    p->restore();
+}
+
+void NavTree::animateArrow(const QModelIndex &idx, bool open) {
+    const QString id = idx.data(NavRole::Id).toString();
+    if (id.isEmpty()) return;
+    if (m_silent || !isVisible() || !Ui::motionAllowed()) { m_arrow.remove(id); return; }
+    const qreal from = m_arrow.contains(id) ? m_arrow.value(id) : (open ? 0.0 : 1.0);
+    m_arrow[id] = from;
+    Ui::animate(this, from, open ? 1.0 : 0.0, 130, [this, id](qreal v) { m_arrow[id] = v; viewport()->update(); },
+                QEasingCurve::OutCubic, [this, id] { m_arrow.remove(id); viewport()->update(); });
+}
+
+void NavTree::setCompact(bool on) {
+    m_compact = on;
+    doItemsLayout();
+    viewport()->update();
 }
 
 void NavTree::keyPressEvent(QKeyEvent *e) {
@@ -354,10 +393,24 @@ void NavTree::resizeEvent(QResizeEvent *e) {
 
 void NavTree::contextMenuEvent(QContextMenuEvent *e) {
     const QModelIndex i = indexAt(e->pos());
-    if (i.isValid()) {
-        setCurrentIndex(i);
-        emit contextRequested(i.data(NavRole::Id).toString(), e->globalPos());
+    if (!i.isValid()) return;
+    setCurrentIndex(i);
+    if (m_proxy->rowCount(i) > 0) {
+        // every group offers Expand / Collapse / Expand All / Collapse All
+        GlassMenu menu(this);
+        QAction *ex = menu.addAction("Expand");
+        ex->setEnabled(!isExpanded(i));
+        connect(ex, &QAction::triggered, this, [this, i] { expand(i); });
+        QAction *co = menu.addAction("Collapse");
+        co->setEnabled(isExpanded(i));
+        connect(co, &QAction::triggered, this, [this, i] { collapse(i); });
+        menu.addSeparator();
+        connect(menu.addAction("Expand All"), &QAction::triggered, this, [this] { expandAll(); });
+        connect(menu.addAction("Collapse All"), &QAction::triggered, this, [this] { collapseAll(); });
+        menu.exec(e->globalPos());
+        return;
     }
+    emit contextRequested(i.data(NavRole::Id).toString(), e->globalPos());
 }
 
 bool NavTree::hasSpinning() const {
@@ -495,6 +548,12 @@ bool NavTabBar::eventFilter(QObject *o, QEvent *e) {
     return GlassPanel::eventFilter(o, e);
 }
 
+void NavTabBar::setBadge(int tab, int count, const QColor &color) {
+    if (count <= 0) m_badges.remove(tab);
+    else m_badges.insert(tab, {count, color});
+    update();
+}
+
 void NavTabBar::paintContent(QPainter &p, const QRect &shape) {
     if (m_buttons.isEmpty()) return;
     const qreal dpr = devicePixelRatioF();
@@ -509,4 +568,18 @@ void NavTabBar::paintContent(QPainter &p, const QRect &shape) {
         cacheKey = key;
     }
     p.drawImage(QPointF(m_circleX - d / 2.0, shape.center().y() - d / 2.0 + 0.5), cache);
+    // count badges sit above the buttons, painted by the bar after its own content but behind nothing
+    for (auto it = m_badges.constBegin(); it != m_badges.constEnd(); ++it) {
+        if (it.key() < 0 || it.key() >= m_buttons.size()) continue;
+        const QRect b = m_buttons[it.key()]->geometry();
+        const QString txt = it.value().first > 99 ? "99+" : QString::number(it.value().first);
+        p.setFont(Theme::instance().ui(9, QFont::Bold));
+        const int w = qMax(13, QFontMetrics(p.font()).horizontalAdvance(txt) + 7);
+        const QRect br(b.right() - w + 4, b.top() - 2, w, 13);
+        p.setPen(Qt::NoPen);
+        p.setBrush(it.value().second);
+        p.drawRoundedRect(br, 6.5, 6.5);
+        p.setPen(Qt::white);
+        p.drawText(br, Qt::AlignCenter, txt);
+    }
 }

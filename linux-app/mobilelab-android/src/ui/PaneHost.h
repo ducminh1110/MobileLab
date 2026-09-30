@@ -1,6 +1,7 @@
 #pragma once
 // Panel (floating rounded surface) and PaneHost (a centre widget with collapsible side panes, resizable by
 // drag handles, with animated collapse / expand, snap-collapse past the minimum and double-click toggle).
+#include <QFocusEvent>
 #include <QVariantAnimation>
 #include <QVector>
 #include <QWidget>
@@ -30,13 +31,16 @@ protected:
     void mouseMoveEvent(QMouseEvent *e) override;
     void mouseReleaseEvent(QMouseEvent *e) override;
     void mouseDoubleClickEvent(QMouseEvent *e) override;
+    void keyPressEvent(QKeyEvent *e) override;
+    void focusInEvent(QFocusEvent *e) override;
+    void focusOutEvent(QFocusEvent *e) override;
     void paintEvent(QPaintEvent *) override;
     void enterEvent(QEnterEvent *) override { m_hover = true; update(); }
     void leaveEvent(QEvent *) override { m_hover = false; update(); }
 private:
     PaneHost *m_host;
     int m_id;
-    bool m_hover = false, m_drag = false;
+    bool m_hover = false, m_drag = false, m_kbFocus = false;
     QPoint m_press;
     int m_startSize = 0;
 };
@@ -50,6 +54,8 @@ public:
         int minSize = 200;
         int maxSize = 600;
         int defaultSize = 300;
+        int collapsedSize = 0;   // size while collapsed (the debug area keeps its 28px bar)
+        int snap = 56;           // dragging this far below minSize snaps the pane closed
         QString name;
     };
 

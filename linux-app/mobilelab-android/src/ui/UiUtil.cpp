@@ -117,3 +117,24 @@ QColor statusColor(const QString &state, const Tokens &t) {
 }
 
 }  // namespace Ui
+
+namespace Ui {
+int fuzzyScore(const QString &pattern, const QString &text) {
+    if (pattern.isEmpty()) return 0;
+    const QString p = pattern.toLower(), t = text.toLower();
+    int score = 0, pi = 0, streak = 0;
+    for (int i = 0; i < t.size() && pi < p.size(); ++i) {
+        if (t[i] != p[pi]) { streak = 0; continue; }
+        int s = 10;
+        if (streak > 0) s += 8 * streak;                          // consecutive run
+        const bool wordStart = i == 0 || !t[i - 1].isLetterOrNumber() || (text[i].isUpper() && text[i - 1].isLower());
+        if (wordStart) s += 14;
+        if (i == pi) s += 6;                                      // matches from the very start
+        score += s;
+        ++streak;
+        ++pi;
+    }
+    if (pi < p.size()) return -1;
+    return score - qMin(text.size(), 60) / 4;                       // shorter candidates win ties
+}
+}

@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QSet>
 #include <QTimer>
+#include <QVariantAnimation>
 #include <QWidget>
 #include <optional>
 #include "GlassMath.h"
@@ -45,30 +46,46 @@ inline Level level() { return Settings::instance().level(); }
 // True while a backdrop is being captured: glass widgets (and their content) must not paint then.
 bool suppressed();
 
-// Everything needed to draw one look of the material.
+// Everything needed to draw one look of the material (logical units; scaled by the device pixel ratio).
 struct Material {
     glass::Params params;
-    QColor tintTop, tintBottom, rimLight, rimDark, sheen, opaque;
-    qreal sheenHeight = 0.5;
-    bool rim = true;
+    QColor tintTop, tintBottom, rimLight, rimDark, opaque;
+    float lightScale = 1.f;
+    float shadowSpread = 3.5f;   // px
+    float shadowOffsetY = 1.f;   // px
+    float shadowAlpha = 0.3f;
     static Material forKind(Kind k, const Tokens &t);
+    // The look while pressed: bevel and specular flatten.
+    Material pressed() const;
 };
 
 struct Stats {
     quint64 paints = 0;
     quint64 recomputes = 0;
-    double totalMs = 0, lastMs = 0, maxMs = 0;       // full paintEvent (material lookup + draw)
-    double materialTotalMs = 0, materialLastMs = 0, materialMaxMs = 0;  // material recomputation only
+    double totalMs = 0, lastMs = 0, maxMs = 0;                              // full paintEvent
+    double materialTotalMs = 0, materialLastMs = 0, materialMaxMs = 0;      // material recomputation only
 };
 QHash<QString, Stats> allStats();
 void resetStats();
 
-// Renders the glass material for a w x h device pixel shape from `backdrop` (device pixels, larger than
-// the shape by `origin` on each side). A null backdrop gives the tint + rim fallback.
+// Everything a render produces before the light pass, so hover / press can re-light without resampling.
+struct Rendered {
+    QImage pre;                                  // sampled + tinted + rim, opaque, before light and mask
+    std::shared_ptr<const glass::ShapeTable> table;
+    QImage lit(float lightScale, bool light) const;   // copy with the light layers added and the mask applied
+};
+// Renders the glass material for a w x h device pixel shape from `backdrop` (device pixels, larger than the
+// shape by `origin` on each side). A null backdrop gives the tint + rim fallback (opaque).
+Rendered renderMaterialStages(const QImage &backdrop, QPoint origin, int w, int h, qreal dpr, qreal radiusDev,
+                              const Material &m, Level level);
+// Convenience: stages + light + mask in one go.
 QImage renderMaterial(const QImage &backdrop, QPoint origin, int w, int h, qreal dpr, qreal radiusDev,
                       const Material &m, Level level);
-// Margin (device px) of backdrop needed around a shape for the given material and level.
-int backdropMargin(const Material &m, Level level, qreal dpr);
+// Params scaled to device pixels.
+glass::Params deviceParams(const Material &m, qreal dpr, Level level);
+// Margin (device px) of backdrop needed around a shape for the given table and level.
+int backdropMargin(const glass::ShapeTable &t, const glass::Params &p, Level level);
+int marginFor(const Material &m, qreal dpr, Level level, int w, int h, qreal radiusDev);
 
 // Captures what is behind glass widgets and repaints them when it changes.
 class BackdropHub : public QObject {
@@ -114,6 +131,9 @@ public:
     void setBackdropDisabled(bool off);
     Glass::Level effectiveLevel() const;
     QImage materialImage();  // renders the current material (for tests)
+    // Interaction: hover lifts the light slightly, press flattens the bevel (about 120 ms cross fade).
+    void setHoverLook(bool on);
+    void setPressedLook(bool on);
     // Glass content painted by subclasses on top of the material.
     virtual void paintContent(QPainter &p, const QRect &shape);
 
@@ -124,16 +144,26 @@ protected:
     void resizeEvent(QResizeEvent *e) override;
 
 private:
-    QImage &material(const QRect &shape, Glass::Level lvl);
+    struct Variant {
+        Glass::Rendered r;
+        quint64 key = 0;
+        QImage fin;
+        int finState = -1;
+    };
+    void ensureVariant(Variant &v, bool pressed, const QRect &shape, Glass::Level lvl);
+    const QImage &finalImage(Variant &v, Glass::Level lvl);
     void drawShadow(QPainter &p, const QRect &shape, Glass::Level lvl);
     Shape m_shape = Shape::Capsule;
     int m_radius = 12, m_margin = 3;
     Glass::Kind m_kind;
     std::optional<Glass::Level> m_forced;
     QImage m_backdropOverride;
-    bool m_noBackdrop = false;
-    QImage m_mat;
-    quint64 m_matKey = 0;
+    bool m_noBackdrop = false, m_hover = false, m_pressedLook = false;
+    qreal m_pressT = 0;
+    QVariantAnimation *m_pressAnim = nullptr;
+    Variant m_normal, m_flat;
+    QImage m_shadow;
+    quint64 m_shadowKey = 0;
     double m_lastMaterialMs = 0;
     bool m_recomputed = false;
 };

@@ -5,17 +5,26 @@
 #include <array>
 #include <cmath>
 #include <list>
-#include <tuple>
 
 namespace glass {
 
-bool Params::operator==(const Params &o) const {
-    return blur == o.blur && saturate == o.saturate && edge == o.edge && edgeWidth == o.edgeWidth && rim == o.rim &&
-           rimWidth == o.rimWidth && base == o.base && baseWidth == o.baseWidth && cornerBoost == o.cornerBoost &&
-           refract == o.refract;
+namespace {
+float smooth(float e0, float e1, float x) {
+    if (e0 == e1) return x < e0 ? 0.f : 1.f;
+    const float t = std::min(1.f, std::max(0.f, (x - e0) / (e1 - e0)));
+    return t * t * (3.f - 2.f * t);
+}
+float clampRadius(float w, float h, float r) { return std::max(0.f, std::min(r, std::min(w, h) * 0.5f)); }
+qint16 q16(float v) { return qint16(std::lround(std::max(-2000.f, std::min(2000.f, v)) * 16.f)); }
+quint8 q8(float v) { return quint8(std::lround(std::max(0.f, std::min(1.f, v)) * 255.f)); }
 }
 
-static float clampRadius(float w, float h, float r) { return std::max(0.f, std::min(r, std::min(w, h) * 0.5f)); }
+bool Params::operator==(const Params &o) const { return sameShape(o) && blur == o.blur && saturate == o.saturate && edgeSharp == o.edgeSharp; }
+
+bool Params::sameShape(const Params &o) const {
+    return refraction == o.refraction && chroma == o.chroma && edgeHighlight == o.edgeHighlight && specular == o.specular &&
+           fresnel == o.fresnel && zRadius == o.zRadius && ior == o.ior && maxOffset == o.maxOffset && scale == o.scale;
+}
 
 float sdfRoundRect(float x, float y, float w, float h, float r) {
     r = clampRadius(w, h, r);
@@ -30,79 +39,121 @@ Vec2 sdfNormal(float x, float y, float w, float h, float r) {
     const float px = x - w * 0.5f, py = y - h * 0.5f;
     const float sx = px < 0 ? -1.f : 1.f, sy = py < 0 ? -1.f : 1.f;
     const float qx = std::fabs(px) - (w * 0.5f - r), qy = std::fabs(py) - (h * 0.5f - r);
-    Vec2 n;
-    if (qx > 0 && qy > 0) {  // corner arc region
+    if (qx > 0 && qy > 0) {
         const float l = std::sqrt(qx * qx + qy * qy);
-        n = {qx / l * sx, qy / l * sy};
-    } else if (qx > qy) {  // closest to a vertical side
-        n = {sx, 0.f};
-    } else if (qy > qx) {  // closest to a horizontal side
-        n = {0.f, sy};
-    } else {  // exactly on the medial axis: no preferred direction
-        n = {0.f, 0.f};
+        return {qx / l * sx, qy / l * sy};
     }
-    return n;
+    if (qx > qy) return {sx, 0.f};
+    if (qy > qx) return {0.f, sy};
+    return {0.f, 0.f};
 }
 
-float coverage(float sdf) {
-    const float t = std::min(1.f, std::max(0.f, (sdf + 1.f) * 0.5f));
-    return 1.f - t * t * (3.f - 2.f * t);
+float coverage(float sdf) { return 1.f - smooth(-1.f, 1.f, sdf); }
+
+float bevelHeight(float d, float zR) {
+    if (d <= 0.f) return 0.f;
+    if (d >= zR) return zR;
+    return std::sqrt(d * (2.f * zR - d));
 }
 
-float displacementAt(float depth, const Params &p) {
-    if (depth < 0.f) depth = 0.f;
-    float m = 0.f;
-    if (p.edge > 0.f && p.edgeWidth > 0.f) m += p.edge * std::exp(-depth / p.edgeWidth);
-    if (p.rim > 0.f && p.rimWidth > 0.f) m += p.rim * std::exp(-depth / p.rimWidth);
-    // The exponential tails are cut to exactly zero between 3 and 5 widths so the centre of a large
-    // shape is untouched (and the table is sparse).
-    const float w = std::max(p.edgeWidth, p.rimWidth);
-    if (w > 0.f) {
-        const float t = std::min(1.f, std::max(0.f, (depth - 3.f * w) / (2.f * w)));
-        m *= 1.f - t * t * (3.f - 2.f * t);
-    }
-    if (p.base > 0.f && p.baseWidth > 0.f) m += p.base * (1.f - std::exp(-depth / p.baseWidth));
-    return m;
+float bevelSlope(float d, float zR) {
+    if (d >= zR || zR <= 0.f) return 0.f;
+    d = std::max(d, 0.5f);
+    return (zR - d) / std::sqrt(d * (2.f * zR - d));
 }
 
-RefractionTable::RefractionTable(int w, int h, float radius, const Params &p)
-    : m_w(std::max(1, w)), m_h(std::max(1, h)), m_r(clampRadius(float(w), float(h), radius)),
-      m_dx(size_t(m_w) * m_h), m_dy(size_t(m_w) * m_h), m_mask(size_t(m_w) * m_h) {
+// --- ShapeTable -----------------------------------------------------------------------------------------
+
+ShapeTable::ShapeTable(int w, int h, float radius, const Params &p)
+    : m_w(std::max(1, w)), m_h(std::max(1, h)), m_r(clampRadius(float(w), float(h), radius)), m_p(p), m_t(size_t(m_w) * m_h) {
     const float fw = float(m_w), fh = float(m_h);
+    const float halfX = fw * 0.5f, halfY = fh * 0.5f, maxD = std::min(halfX, halfY);
+    m_zR = std::max(1.f, std::min(p.zRadius, maxD));
+    const float zR = m_zR;
+    const float k = 1.f - 1.f / std::max(1.01f, p.ior);
+    const float capPx = p.maxOffset > 0 ? p.maxOffset : zR;
+    const float S = std::max(0.5f, p.scale);
+    // Light directions (x right, y up, z towards the viewer), as in the reference lighting rig.
+    auto norm3 = [](float x, float y, float z) { const float l = std::sqrt(x * x + y * y + z * z); return std::array<float, 3>{x / l, y / l, z / l}; };
+    auto half3 = [&](const std::array<float, 3> &l) { return norm3(l[0], l[1], l[2] + 1.f); };
+    const auto L1 = norm3(0.4f, 0.7f, 1.f), H1 = half3(L1);
+    const auto L2 = norm3(-0.3f, -0.5f, 1.f), H2 = half3(L2);
+    const auto L3 = norm3(0.1f, 0.3f, 1.f);
+    const auto L4 = norm3(0.f, 0.9f, 0.4f), H4 = half3(L4);
     for (int y = 0; y < m_h; ++y) {
         for (int x = 0; x < m_w; ++x) {
             const float cx = x + 0.5f, cy = y + 0.5f;
             const float sdf = sdfRoundRect(cx, cy, fw, fh, m_r);
-            const size_t i = size_t(y) * m_w + x;
-            m_mask[i] = quint8(std::lround(coverage(sdf) * 255.f));
-            if (!p.refract || sdf > 0.f) {
-                m_dx[i] = m_dy[i] = 0.f;
-                continue;
+            Texel &t = m_t[size_t(y) * m_w + x];
+            t.mask = q8(coverage(sdf));
+            if (sdf > 1.f) continue;
+            const float inside = std::max(-sdf, 0.f);
+            const float d = std::max(inside, 0.5f);
+            const Vec2 n = sdfNormal(cx, cy, fw, fh, m_r);           // outward, screen coordinates
+            const float slope = bevelSlope(d, zR);
+            const float hC = bevelHeight(d, zR);
+            const float gx = -n.x * slope, gy = -n.y * slope;         // grad h: points into the shape
+            const float thickNorm = (hC * 2.f) / std::max(zR * 2.f, 1.f);
+            // dual surface refraction (entry + exit + through), scaled by the refraction strength
+            float rx = (gx * k * 2.f + gx * k * thickNorm * 0.5f) * p.refraction * 30.f * S;
+            float ry = (gy * k * 2.f + gy * k * thickNorm * 0.5f) * p.refraction * 30.f * S;
+            // slight pull towards the centre, fading out beyond 2 zR so the deep interior is untouched
+            const float px = cx - halfX, py = cy - halfY;
+            const float pull = smooth(0.f, zR, inside) * (1.f - smooth(zR, 2.f * zR, inside));
+            rx += (-px / std::max(halfX, 1.f)) * p.refraction * 4.f * S * pull;
+            ry += (-py / std::max(halfY, 1.f)) * p.refraction * 4.f * S * pull;
+            float mag = std::sqrt(rx * rx + ry * ry);
+            if (mag > 1e-4f) {
+                const float cap = capPx * std::tanh(mag / capPx);   // soft cap
+                rx *= cap / mag;
+                ry *= cap / mag;
+                mag = cap;
             }
-            const float depth = -sdf;
-            float mag = displacementAt(depth, p);
-            if (p.cornerBoost > 0.f && m_r > 0.f) {
-                const float px = cx - fw * 0.5f, py = cy - fh * 0.5f;
-                const float qx = std::fabs(px) - (fw * 0.5f - m_r), qy = std::fabs(py) - (fh * 0.5f - m_r);
-                const float t = std::min(1.f, std::max(0.f, (std::min(qx, qy) + 0.5f * m_r) / (0.75f * m_r)));
-                mag *= 1.f + p.cornerBoost * t * t * (3.f - 2.f * t);
-            }
-            const Vec2 n = sdfNormal(cx, cy, fw, fh, m_r);
-            m_dx[i] = n.x * mag;
-            m_dy[i] = n.y * mag;
+            const float edge = 1.f - smooth(0.f, maxD * 0.35f, inside);
+            // surface normal N = normalize(-grad h, 1)
+            const float invN = 1.f / std::sqrt(1.f + slope * slope);
+            const float Nx = -gx * invN, Ny = -gy * invN, Nz = invN;   // screen coords (y down)
+            const float caS = p.chroma * 18.f * (edge * 0.7f + 0.3f) * 2.f * S;
+            const float cxo = Nx * caS, cyo = Ny * caS;
+            t.rx = q16(rx); t.ry = q16(ry);
+            t.cx = q16(cxo); t.cy = q16(cyo);
+            t.edge = q8(edge);
             m_max = std::max(m_max, mag);
+            m_reach = std::max(m_reach, mag + std::sqrt(cxo * cxo + cyo * cyo));
+            t.depth = q8(smooth(0.f, zR, inside));
+            // ---- light layers ----
+            const float fres = std::pow(1.f - std::fabs(Nz), 4.f) * p.fresnel;
+            const float Ny_up = -Ny;                                    // lights are specified with y up
+            auto dot3 = [&](const std::array<float, 3> &v) { return Nx * v[0] + Ny_up * v[1] + Nz * v[2]; };
+            const float sp1 = std::pow(std::max(dot3(H1), 0.f), 90.f);
+            const float sp2 = std::pow(std::max(dot3(H2), 0.f), 50.f) * 0.3f;
+            const float spB = std::pow(std::max(dot3(L3), 0.f), 6.f) * 0.1f;
+            const float sp4 = std::pow(std::max(dot3(H4), 0.f), 120.f) * 0.6f;
+            const float totalSpec = (sp1 + sp2 + spB + sp4) * p.specular;
+            const float bw = 1.5f * S;
+            float stroke = smooth(-bw - 1.f, -bw, sdf) * (1.f - smooth(-1.f, 0.f, sdf));
+            const float topBias = 0.5f + 0.5f * (-py / std::max(halfY, 1.f));
+            stroke *= 0.4f + 0.6f * topBias;
+            const float rim = edge * p.edgeHighlight * 0.22f;
+            const float glow = (1.f - smooth(0.f, 5.f * S, inside)) * p.edgeHighlight * 0.15f;
+            const float env = (Ny_up * 0.5f + 0.5f) * fres * 0.08f;
+            t.add = q8(totalSpec + rim + glow + stroke * p.edgeHighlight * 0.55f + env);
+            t.wmix = q8(fres);  // mixed towards white by 0.2 * fresnel when rendering
         }
     }
 }
 
-float RefractionTable::magnitude(int x, int y) const {
+float ShapeTable::magnitude(int x, int y) const {
     const float a = dx(x, y), b = dy(x, y);
     return std::sqrt(a * a + b * b);
 }
 
-QImage RefractionTable::maskImage() const {
+QImage ShapeTable::maskImage() const {
     QImage img(m_w, m_h, QImage::Format_Alpha8);
-    for (int y = 0; y < m_h; ++y) memcpy(img.scanLine(y), m_mask.data() + size_t(y) * m_w, size_t(m_w));
+    for (int y = 0; y < m_h; ++y) {
+        uchar *line = img.scanLine(y);
+        for (int x = 0; x < m_w; ++x) line[x] = at(x, y).mask;
+    }
     return img;
 }
 
@@ -111,42 +162,84 @@ struct Key {
     int w, h;
     float r;
     Params p;
-    bool operator==(const Key &o) const { return w == o.w && h == o.h && r == o.r && p == o.p; }
+    bool operator==(const Key &o) const { return w == o.w && h == o.h && r == o.r && p.sameShape(o.p); }
 };
 QMutex g_mutex;
-std::list<std::pair<Key, std::shared_ptr<const RefractionTable>>> g_cache;
-constexpr size_t kCacheMax = 48;
+std::list<std::pair<Key, std::shared_ptr<const ShapeTable>>> g_cache;
+size_t g_bytes = 0;
+constexpr size_t kCacheBytes = 48u << 20;
 }
 
-std::shared_ptr<const RefractionTable> RefractionTable::cached(int w, int h, float radius, const Params &p) {
+std::shared_ptr<const ShapeTable> ShapeTable::cached(int w, int h, float radius, const Params &p) {
     const Key k{w, h, radius, p};
-    QMutexLocker lock(&g_mutex);
-    for (auto it = g_cache.begin(); it != g_cache.end(); ++it) {
-        if (it->first == k) {
-            g_cache.splice(g_cache.begin(), g_cache, it);  // most recently used first
-            return g_cache.front().second;
+    {
+        QMutexLocker lock(&g_mutex);
+        for (auto it = g_cache.begin(); it != g_cache.end(); ++it) {
+            if (it->first == k) {
+                g_cache.splice(g_cache.begin(), g_cache, it);
+                return g_cache.front().second;
+            }
         }
     }
-    auto t = std::make_shared<const RefractionTable>(w, h, radius, p);
+    auto t = std::make_shared<const ShapeTable>(w, h, radius, p);
+    QMutexLocker lock(&g_mutex);
     g_cache.emplace_front(k, t);
-    while (g_cache.size() > kCacheMax) g_cache.pop_back();
+    g_bytes += t->bytes();
+    while (g_bytes > kCacheBytes && g_cache.size() > 1) {
+        g_bytes -= g_cache.back().second->bytes();
+        g_cache.pop_back();
+    }
     return t;
 }
 
-int RefractionTable::cacheSize() {
+int ShapeTable::cacheSize() {
     QMutexLocker lock(&g_mutex);
     return int(g_cache.size());
 }
 
-void RefractionTable::clearCache() {
+void ShapeTable::clearCache() {
     QMutexLocker lock(&g_mutex);
     g_cache.clear();
+    g_bytes = 0;
 }
 
-// --- blur -------------------------------------------------------------------------------------------
+// --- shadow ---------------------------------------------------------------------------------------------
+
+QImage shadowAlpha(int w, int h, float radius, int margin, float spread, float offsetY) {
+    static QMutex mutex;
+    static std::list<std::pair<QString, QImage>> cache;
+    const QString key = QString("%1x%2 r%3 m%4 s%5 o%6").arg(w).arg(h).arg(radius).arg(margin).arg(spread).arg(offsetY);
+    {
+        QMutexLocker l(&mutex);
+        for (auto it = cache.begin(); it != cache.end(); ++it)
+            if (it->first == key) { cache.splice(cache.begin(), cache, it); return cache.front().second; }
+    }
+    QImage img(w + 2 * margin, h + 2 * margin, QImage::Format_Alpha8);
+    const float r = clampRadius(float(w), float(h), radius);
+    const float sp = std::max(spread, 1.f);
+    for (int y = 0; y < img.height(); ++y) {
+        uchar *line = img.scanLine(y);
+        for (int x = 0; x < img.width(); ++x) {
+            const float sdf = sdfRoundRect(x + 0.5f - margin, y + 0.5f - margin - offsetY, float(w), float(h), r);
+            const float d = std::max(sdf - 1.f, 0.f);
+            const float outer = std::exp(-d * d / (sp * sp)) * 0.65f;
+            const float contact = std::exp(-d * 0.08f / std::max(sp * 0.04f, 0.01f)) * 0.35f;
+            // outside the shape only; the shape itself is opaque glass
+            const float inside = sdfRoundRect(x + 0.5f - margin, y + 0.5f - margin, float(w), float(h), r);
+            float a = inside < -1.f ? 0.f : (outer + contact) * (1.f - coverage(inside));
+            if (inside > sp * 3.f) a = 0.f;
+            line[x] = q8(a);
+        }
+    }
+    QMutexLocker l(&mutex);
+    cache.emplace_front(key, img);
+    while (cache.size() > 64) cache.pop_back();
+    return img;
+}
+
+// --- blur / saturate ------------------------------------------------------------------------------------
 
 static void boxPass(const quint32 *src, quint32 *dst, int len, int stride, int count, int r, int srcStep, int dstStep) {
-    // Running-sum box blur along one axis, clamped at both ends. Processes `count` lines.
     const int window = 2 * r + 1;
     for (int line = 0; line < count; ++line) {
         const quint32 *s = src + size_t(line) * srcStep;
@@ -175,8 +268,8 @@ QImage boxBlur(const QImage &srcIn, int radius, int iterations) {
     std::vector<quint32> a(size_t(w) * h), b(size_t(w) * h);
     for (int y = 0; y < h; ++y) memcpy(a.data() + size_t(y) * w, img.constScanLine(y), size_t(w) * 4);
     for (int it = 0; it < std::max(1, iterations); ++it) {
-        boxPass(a.data(), b.data(), w, 1, h, radius, w, w);   // horizontal
-        boxPass(b.data(), a.data(), h, w, w, radius, 1, 1);   // vertical
+        boxPass(a.data(), b.data(), w, 1, h, radius, w, w);
+        boxPass(b.data(), a.data(), h, w, w, radius, 1, 1);
     }
     QImage out(w, h, QImage::Format_ARGB32_Premultiplied);
     for (int y = 0; y < h; ++y) memcpy(out.scanLine(y), a.data() + size_t(y) * w, size_t(w) * 4);
@@ -202,69 +295,85 @@ void saturate(QImage &img, float amount) {
     }
 }
 
-QImage refract(const QImage &bd, QPoint origin, const RefractionTable &t, bool displace, const QImage *sharp) {
-    const int w = t.width(), h = t.height();
-    QImage out(w, h, QImage::Format_ARGB32_Premultiplied);
-    const int bw = bd.width(), bh = bd.height();
-    const quint32 *base = reinterpret_cast<const quint32 *>(bd.constBits());
-    const int stride = int(bd.bytesPerLine() / 4);
-    const bool useSharp = sharp && displace && sharp->size() == bd.size();
-    const quint32 *sbase = useSharp ? reinterpret_cast<const quint32 *>(sharp->constBits()) : nullptr;
-    const int sstride = useSharp ? int(sharp->bytesPerLine() / 4) : 0;
-    const float maxMag = std::max(0.001f, t.maxMagnitude());
-    auto at = [&](const quint32 *b, int st, int x, int y) {
-        x = std::min(std::max(x, 0), bw - 1);
-        y = std::min(std::max(y, 0), bh - 1);
-        return b[size_t(y) * st + x];
-    };
-    auto bilinear = [&](const quint32 *b, int st, float fx, float fy) {
+// --- sampling -------------------------------------------------------------------------------------------
+
+namespace {
+struct Grid {
+    const quint32 *base;
+    int stride, w, h;
+    quint32 at(int x, int y) const {
+        x = std::min(std::max(x, 0), w - 1);
+        y = std::min(std::max(y, 0), h - 1);
+        return base[size_t(y) * stride + x];
+    }
+    // bilinear fetch of one channel (shift 16 = red, 8 = green, 0 = blue)
+    float chan(float fx, float fy, int shift) const {
         const int x0 = int(std::floor(fx)), y0 = int(std::floor(fy));
         const float tx = fx - x0, ty = fy - y0;
-        const quint32 c00 = at(b, st, x0, y0), c10 = at(b, st, x0 + 1, y0), c01 = at(b, st, x0, y0 + 1), c11 = at(b, st, x0 + 1, y0 + 1);
-        float r[3];
-        int i = 0;
-        for (int shift : {16, 8, 0}) {
-            const float top = ((c00 >> shift) & 255) * (1 - tx) + ((c10 >> shift) & 255) * tx;
-            const float bot = ((c01 >> shift) & 255) * (1 - tx) + ((c11 >> shift) & 255) * tx;
-            r[i++] = top * (1 - ty) + bot * ty;
-        }
-        return std::array<float, 3>{r[0], r[1], r[2]};
-    };
+        const float a = float((at(x0, y0) >> shift) & 255), b = float((at(x0 + 1, y0) >> shift) & 255);
+        const float c = float((at(x0, y0 + 1) >> shift) & 255), d = float((at(x0 + 1, y0 + 1) >> shift) & 255);
+        return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+    }
+};
+}
+
+QImage sampleThrough(const QImage &soft, const QImage *sharp, QPoint origin, const ShapeTable &t, const SampleOptions &o) {
+    const int w = t.width(), h = t.height();
+    QImage out(w, h, QImage::Format_ARGB32_Premultiplied);
+    const Grid G{reinterpret_cast<const quint32 *>(soft.constBits()), int(soft.bytesPerLine() / 4), soft.width(), soft.height()};
+    const bool haveSharp = sharp && sharp->size() == soft.size();
+    const Grid S = haveSharp ? Grid{reinterpret_cast<const quint32 *>(sharp->constBits()), int(sharp->bytesPerLine() / 4), sharp->width(), sharp->height()} : G;
     for (int y = 0; y < h; ++y) {
-        quint32 *o = reinterpret_cast<quint32 *>(out.scanLine(y));
+        quint32 *dst = reinterpret_cast<quint32 *>(out.scanLine(y));
         for (int x = 0; x < w; ++x) {
+            const Texel &tx = t.at(x, y);
             const int bx = origin.x() + x, by = origin.y() + y;
-            const float ddx = displace ? t.dx(x, y) : 0.f, ddy = displace ? t.dy(x, y) : 0.f;
-            if (ddx == 0.f && ddy == 0.f) {
-                o[x] = at(base, stride, bx, by) | 0xff000000u;
+            if (!o.displace || (tx.rx == 0 && tx.ry == 0 && tx.cx == 0 && tx.cy == 0)) {
+                dst[x] = G.at(bx, by) | 0xff000000u;
                 continue;
             }
-            auto c = bilinear(base, stride, bx + ddx, by + ddy);
-            if (useSharp) {
-                const float m = std::sqrt(ddx * ddx + ddy * ddy) / maxMag;
-                float k = std::min(1.f, std::max(0.f, (m - 0.30f) / 0.40f));
-                k = k * k * (3.f - 2.f * k);
-                if (k > 0.f) {
-                    const auto s = bilinear(sbase, sstride, bx + ddx, by + ddy);
-                    for (int i = 0; i < 3; ++i) c[i] += (s[i] - c[i]) * k;
-                }
+            const float fx = bx + tx.rx / 16.f, fy = by + tx.ry / 16.f;
+            const float cx = tx.cx / 16.f, cy = tx.cy / 16.f;
+            const float edgeMix = 1.f - o.edgeSharp * (tx.edge / 255.f);   // weight of the blurred sample
+            const bool mixSharp = haveSharp && edgeMix < 0.999f;
+            float rgb[3];
+            const int shifts[3] = {16, 8, 0};
+            const float sgn[3] = {1.f, 0.f, -1.f};
+            for (int c = 0; c < 3; ++c) {
+                const float sx = fx + cx * sgn[c], sy = fy + cy * sgn[c];
+                float v = G.chan(sx, sy, shifts[c]);
+                if (mixSharp) v = S.chan(sx, sy, shifts[c]) * (1.f - edgeMix) + v * edgeMix;
+                rgb[c] = v;
             }
-            o[x] = 0xff000000u | (quint32(c[0] + 0.5f) << 16) | (quint32(c[1] + 0.5f) << 8) | quint32(c[2] + 0.5f);
+            const float gain = 1.f + 0.06f * (tx.depth / 255.f);
+            auto cl = [&](float v) { return quint32(std::min(255.f, v * gain + 0.5f)); };
+            dst[x] = 0xff000000u | (cl(rgb[0]) << 16) | (cl(rgb[1]) << 8) | cl(rgb[2]);
         }
     }
     return out;
 }
 
-void applyMask(QImage &img, const RefractionTable &t) {
+void applyLightAndMask(QImage &img, const ShapeTable &t, float lightScale, bool light) {
     for (int y = 0; y < img.height() && y < t.height(); ++y) {
         quint32 *p = reinterpret_cast<quint32 *>(img.scanLine(y));
         for (int x = 0; x < img.width() && x < t.width(); ++x) {
-            const unsigned m = t.mask(x, y);
-            if (m == 255) continue;
-            const quint32 c = p[x];
-            if (m == 0) { p[x] = 0; continue; }
-            auto s = [&](quint32 v) { return (v * m + 127) / 255; };
-            p[x] = (s(c >> 24) << 24) | (s((c >> 16) & 255) << 16) | (s((c >> 8) & 255) << 8) | s(c & 255);
+            const Texel &tx = t.at(x, y);
+            quint32 c = p[x];
+            if (tx.mask == 0) { p[x] = 0; continue; }
+            if (light && (tx.add || tx.wmix)) {
+                int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+                const float add = tx.add / 255.f * lightScale * 255.f;
+                const float wm = tx.wmix / 255.f * 0.2f * lightScale;
+                auto f = [&](int v) { return std::min(255, int(v + add + (255 - v) * wm + 0.5f)); };
+                r = f(r); g = f(g); b = f(b);
+                c = 0xff000000u | (quint32(r) << 16) | (quint32(g) << 8) | quint32(b);
+            }
+            if (tx.mask != 255) {
+                const unsigned m = tx.mask;
+                auto s = [&](quint32 v) { return (v * m + 127) / 255; };
+                c = (s(c >> 24) << 24) | (s((c >> 16) & 255) << 16) | (s((c >> 8) & 255) << 8) | s(c & 255);
+            }
+            p[x] = c;
         }
     }
 }

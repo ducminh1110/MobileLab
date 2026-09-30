@@ -7,6 +7,7 @@
 #include <QPaintEvent>
 #include <QSettings>
 #include <cmath>
+#include "UiUtil.h"
 
 namespace Glass {
 
@@ -69,8 +70,19 @@ Material Material::forKind(Kind k, const Tokens &t) {
     m.tintBottom = t.glassTintBottom;
     m.rimLight = t.glassRimLight;
     m.rimDark = t.glassRimDark;
-    m.sheen = t.glassSheen;
     m.opaque = t.glassOpaque;
+    m.lightScale = t.dark ? 1.0f : 0.8f;
+    m.shadowAlpha = t.dark ? 0.55f : 0.22f;
+    glass::Params &p = m.params;
+    p.refraction = 0.42f;
+    p.chroma = 0.04f;
+    p.edgeHighlight = 0.30f;
+    p.specular = 0.40f;
+    p.fresnel = 1.0f;
+    p.zRadius = 14.f;
+    p.blur = 4.f;
+    p.edgeSharp = 0.65f;
+    p.saturate = 1.5f;
     switch (k) {
     case Kind::Control:
         break;
@@ -82,38 +94,53 @@ Material Material::forKind(Kind k, const Tokens &t) {
         m.tintBottom = bottom;
         m.rimLight = QColor(255, 255, 255, t.dark ? 90 : 150);
         m.rimDark = QColor(0, 0, 0, 40);
-        m.sheen = QColor(255, 255, 255, 70);
-        m.params.edge = 5;
-        m.params.rim = 2;
-        m.params.blur = 6;
+        p.refraction = 0.15f;
+        p.chroma = 0.f;
+        p.specular = 0.55f;
+        p.zRadius = 12.f;
+        p.blur = 3.f;
         m.opaque = t.accent;
+        m.shadowAlpha = 0.f;
         break;
     }
     case Kind::Field: {
-        QColor f = t.field;
-        m.tintTop = QColor(f.red(), f.green(), f.blue(), 210);
-        m.tintBottom = QColor(f.red(), f.green(), f.blue(), 190);
+        const QColor f = t.field;
+        m.tintTop = QColor(f.red(), f.green(), f.blue(), 214);
+        m.tintBottom = QColor(f.red(), f.green(), f.blue(), 196);
         m.rimLight = QColor(255, 255, 255, t.dark ? 22 : 120);
         m.rimDark = QColor(0, 0, 0, t.dark ? 90 : 26);
-        m.sheen = QColor(255, 255, 255, t.dark ? 10 : 40);
-        m.params.edge = 6;
-        m.params.rim = 3;
+        p.refraction = 0.18f;
+        p.chroma = 0.f;
+        p.specular = 0.08f;
+        p.edgeHighlight = 0.12f;
+        p.zRadius = 10.f;
         m.opaque = t.field;
+        m.shadowAlpha = 0.f;
         break;
     }
     case Kind::Sheet: {
-        QColor a = t.dark ? QColor(48, 48, 54, 226) : QColor(250, 250, 252, 222);
-        QColor b = t.dark ? QColor(34, 34, 40, 232) : QColor(244, 246, 250, 232);
-        m.tintTop = a;
-        m.tintBottom = b;
-        m.params.blur = 18;
-        m.params.edge = 7;
-        m.params.rim = 3;
-        m.sheenHeight = 0.25;
+        m.tintTop = t.dark ? QColor(48, 48, 54, 226) : QColor(250, 250, 252, 222);
+        m.tintBottom = t.dark ? QColor(34, 34, 40, 232) : QColor(244, 246, 250, 232);
+        p.refraction = 0.10f;
+        p.chroma = 0.f;
+        p.specular = 0.12f;
+        p.zRadius = 18.f;
+        p.blur = 9.f;
         m.opaque = t.dark ? QColor("#2c2c31") : QColor("#f7f7f9");
         break;
     }
     }
+    return m;
+}
+
+Material Material::pressed() const {
+    Material m = *this;
+    m.params.zRadius = std::max(3.f, params.zRadius * 0.45f);
+    m.params.specular *= 0.4f;
+    m.params.refraction *= 0.6f;
+    m.lightScale *= 0.7f;
+    m.tintTop = QColor::fromRgbF(tintTop.redF() * 0.92, tintTop.greenF() * 0.92, tintTop.blueF() * 0.92, std::min(1.0, tintTop.alphaF() + 0.06));
+    m.tintBottom = QColor::fromRgbF(tintBottom.redF() * 0.92, tintBottom.greenF() * 0.92, tintBottom.blueF() * 0.92, std::min(1.0, tintBottom.alphaF() + 0.06));
     return m;
 }
 
@@ -140,82 +167,83 @@ static void recordStats(const QString &name, double totalMs, double materialMs, 
     }
 }
 
-static int blurRadiusDev(const Material &m, qreal dpr) { return qMax(1, int(std::lround(m.params.blur * 0.5 * dpr))); }
-
-int backdropMargin(const Material &m, Level level, qreal dpr) {
-    const float disp = level == Level::Full && m.params.refract ? m.params.maxDisplacement() : 0.f;
-    return int(std::ceil(disp * dpr)) + 2 * blurRadiusDev(m, dpr) + 2;
+glass::Params deviceParams(const Material &m, qreal dpr, Level level) {
+    Q_UNUSED(level);
+    glass::Params p = m.params;
+    p.scale = float(dpr);
+    p.zRadius *= float(dpr);
+    if (p.maxOffset > 0) p.maxOffset *= float(dpr);
+    p.blur = std::max(1.f, std::round(p.blur * float(dpr)));
+    return p;
 }
 
-QImage renderMaterial(const QImage &backdrop, QPoint origin, int w, int h, qreal dpr, qreal radiusDev, const Material &m, Level level) {
-    glass::Params params = m.params;
-    params.blur *= float(dpr);
-    params.edge *= float(dpr);
-    params.edgeWidth *= float(dpr);
-    params.rim *= float(dpr);
-    params.rimWidth *= float(dpr);
-    params.base *= float(dpr);
-    params.baseWidth *= float(dpr);
-    params.refract = level == Level::Full && m.params.refract;
-    auto table = glass::RefractionTable::cached(w, h, float(radiusDev), params);
-    QImage img;
-    if (level == Level::Off) {
-        img = QImage(w, h, QImage::Format_ARGB32_Premultiplied);
-        img.fill(m.opaque);
-    } else if (backdrop.isNull()) {
-        // No backdrop available: tint + rim only, opaque enough to keep text contrast.
-        img = QImage(w, h, QImage::Format_ARGB32_Premultiplied);
-        QColor base = m.opaque;
-        base.setAlpha(244);
-        img.fill(base);
+int backdropMargin(const glass::ShapeTable &t, const glass::Params &p, Level level) {
+    const float reach = level == Level::Full ? t.maxReach() : 0.f;
+    return int(std::ceil(reach)) + 2 * int(p.blur) + 3;
+}
+
+int marginFor(const Material &m, qreal dpr, Level level, int w, int h, qreal radiusDev) {
+    const glass::Params p = deviceParams(m, dpr, level);
+    return backdropMargin(*glass::ShapeTable::cached(w, h, float(radiusDev), p), p, level);
+}
+
+QImage Rendered::lit(float lightScale, bool light) const {
+    QImage img = pre;
+    img.detach();
+    glass::applyLightAndMask(img, *table, lightScale, light);
+    return img;
+}
+
+Rendered renderMaterialStages(const QImage &backdrop, QPoint origin, int w, int h, qreal dpr, qreal radiusDev,
+                              const Material &m, Level level) {
+    const glass::Params p = deviceParams(m, dpr, level);
+    Rendered r;
+    r.table = glass::ShapeTable::cached(w, h, float(radiusDev), p);
+    if (level == Level::Off || backdrop.isNull()) {
+        // Off: opaque control. No backdrop: tint + rim fallback, opaque enough to keep text contrast.
+        r.pre = QImage(w, h, QImage::Format_ARGB32_Premultiplied);
+        r.pre.fill(m.opaque.rgb() | 0xff000000u);
     } else {
-        QImage blurred = glass::boxBlur(backdrop, blurRadiusDev(m, dpr), 2);
-        glass::saturate(blurred, m.params.saturate);
-        if (params.refract) {
-            // Rim band: barely blurred, so refracted detail stays crisp at the edge.
-            QImage crisp = glass::boxBlur(backdrop, qMax(1, blurRadiusDev(m, dpr) / 4), 1);
-            glass::saturate(crisp, m.params.saturate);
-            img = glass::refract(blurred, origin, *table, true, &crisp);
+        QImage soft = glass::boxBlur(backdrop, int(p.blur), 2);
+        glass::saturate(soft, p.saturate);
+        glass::SampleOptions so;
+        so.displace = level == Level::Full;
+        so.edgeSharp = p.edgeSharp;
+        if (level == Level::Full) {
+            QImage sharp = backdrop;
+            sharp.detach();
+            sharp = sharp.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+            glass::saturate(sharp, p.saturate);
+            r.pre = glass::sampleThrough(soft, &sharp, origin, *r.table, so);
         } else {
-            img = glass::refract(blurred, origin, *table, false);
+            r.pre = glass::sampleThrough(soft, nullptr, origin, *r.table, so);
         }
     }
-    QPainter p(&img);
-    p.setRenderHint(QPainter::Antialiasing);
-    if (level != Level::Off) {
+    QPainter pa(&r.pre);
+    pa.setRenderHint(QPainter::Antialiasing);
+    if (level != Level::Off && !backdrop.isNull()) {
         QLinearGradient tint(0, 0, 0, h);
         tint.setColorAt(0, m.tintTop);
         tint.setColorAt(1, m.tintBottom);
-        p.fillRect(QRect(0, 0, w, h), tint);
-        if (m.sheen.alpha() > 0) {
-            // Specular sheen: a diagonal gradient hugging the top edge, clipped to the shape.
-            QPainterPath clip;
-            clip.addRoundedRect(QRectF(0.5, 0.5, w - 1.0, h - 1.0), radiusDev, radiusDev);
-            p.save();
-            p.setClipPath(clip);
-            QLinearGradient sh(0, 0, w * 0.22, h * m.sheenHeight);
-            sh.setColorAt(0, m.sheen);
-            QColor none = m.sheen;
-            none.setAlpha(0);
-            sh.setColorAt(1, none);
-            p.fillRect(QRectF(0, 0, w, h), sh);
-            p.restore();
-        }
+        pa.fillRect(QRect(0, 0, w, h), tint);
     }
-    if (m.rim) {
-        // Rim light: brighter at the top left (light source), dimmer bottom right.
-        const qreal wpx = std::max<qreal>(1.0, dpr);
-        QLinearGradient rim(0, 0, w, h);
-        rim.setColorAt(0, m.rimLight);
-        rim.setColorAt(0.5, level == Level::Off ? m.rimDark : QColor(m.rimLight.red(), m.rimLight.green(), m.rimLight.blue(), m.rimLight.alpha() / 3));
-        rim.setColorAt(1, m.rimDark);
-        QPen pen(QBrush(rim), wpx);
-        p.setPen(pen);
-        p.setBrush(Qt::NoBrush);
-        p.drawRoundedRect(QRectF(wpx / 2, wpx / 2, w - wpx, h - wpx), radiusDev - wpx / 2, radiusDev - wpx / 2);
-    }
-    p.end();
-    glass::applyMask(img, *table);
+    // Rim: brighter at the top left (light source), dimmer bottom right; on Off a plain hairline border.
+    const qreal wpx = std::max<qreal>(1.0, dpr);
+    QLinearGradient rim(0, 0, w, h);
+    rim.setColorAt(0, m.rimLight);
+    rim.setColorAt(0.5, level == Level::Off ? m.rimDark : QColor(m.rimLight.red(), m.rimLight.green(), m.rimLight.blue(), m.rimLight.alpha() / 3));
+    rim.setColorAt(1, m.rimDark);
+    pa.setPen(QPen(QBrush(rim), wpx));
+    pa.setBrush(Qt::NoBrush);
+    pa.drawRoundedRect(QRectF(wpx / 2, wpx / 2, w - wpx, h - wpx), r.table->radius() - wpx / 2, r.table->radius() - wpx / 2);
+    pa.end();
+    return r;
+}
+
+QImage renderMaterial(const QImage &backdrop, QPoint origin, int w, int h, qreal dpr, qreal radiusDev,
+                      const Material &m, Level level) {
+    Rendered r = renderMaterialStages(backdrop, origin, w, h, dpr, radiusDev, m, level);
+    QImage img = r.lit(m.lightScale, level != Level::Off);
     img.setDevicePixelRatio(dpr);
     return img;
 }
@@ -311,8 +339,9 @@ void BackdropHub::flush() {
 GlassPanel::GlassPanel(QWidget *parent, Glass::Kind kind) : QWidget(parent), m_kind(kind) {
     setAttribute(Qt::WA_NoSystemBackground, true);
     Glass::BackdropHub::instance().add(this);
-    connect(&Theme::instance(), &Theme::changed, this, [this] { m_matKey = 0; update(); });
-    connect(&Glass::Settings::instance(), &Glass::Settings::levelChanged, this, [this] { m_matKey = 0; update(); });
+    auto reset = [this] { m_normal = {}; m_flat = {}; m_shadowKey = 0; update(); };
+    connect(&Theme::instance(), &Theme::changed, this, reset);
+    connect(&Glass::Settings::instance(), &Glass::Settings::levelChanged, this, reset);
 }
 
 GlassPanel::~GlassPanel() { Glass::BackdropHub::instance().remove(this); }
@@ -320,18 +349,21 @@ GlassPanel::~GlassPanel() { Glass::BackdropHub::instance().remove(this); }
 void GlassPanel::setShape(Shape s, int radius) {
     m_shape = s;
     m_radius = radius;
-    m_matKey = 0;
+    m_normal = {};
+    m_flat = {};
     update();
 }
 
 void GlassPanel::setKind(Glass::Kind k) {
     m_kind = k;
-    m_matKey = 0;
+    m_normal = {};
+    m_flat = {};
     update();
 }
 
 void GlassPanel::setShadowMargin(int px) {
     m_margin = qMax(0, px);
+    m_shadowKey = 0;
     updateGeometry();
     update();
 }
@@ -346,53 +378,76 @@ qreal GlassPanel::cornerRadius() const {
 
 void GlassPanel::forceLevel(std::optional<Glass::Level> l) {
     m_forced = l;
-    m_matKey = 0;
+    m_normal = {};
+    m_flat = {};
     update();
 }
 
 void GlassPanel::setBackdropOverride(const QImage &img) {
     m_backdropOverride = img;
-    m_matKey = 0;
+    m_normal = {};
+    m_flat = {};
     update();
 }
 
 void GlassPanel::setBackdropDisabled(bool off) {
     m_noBackdrop = off;
-    m_matKey = 0;
+    m_normal = {};
+    m_flat = {};
     update();
 }
 
 Glass::Level GlassPanel::effectiveLevel() const { return m_forced ? *m_forced : Glass::level(); }
 
 void GlassPanel::changeEvent(QEvent *e) {
-    if (e->type() == QEvent::EnabledChange || e->type() == QEvent::PaletteChange) m_matKey = 0;
+    if (e->type() == QEvent::EnabledChange) { m_normal = {}; m_flat = {}; }
     QWidget::changeEvent(e);
 }
 
 void GlassPanel::showEvent(QShowEvent *e) {
-    m_matKey = 0;
+    m_normal.key = 0;
+    m_flat.key = 0;
     QWidget::showEvent(e);
 }
 
 void GlassPanel::resizeEvent(QResizeEvent *e) {
-    m_matKey = 0;
+    m_normal.key = 0;
+    m_flat.key = 0;
+    m_shadowKey = 0;
     QWidget::resizeEvent(e);
 }
 
-QImage &GlassPanel::material(const QRect &shape, Glass::Level lvl) {
+void GlassPanel::setHoverLook(bool on) {
+    if (m_hover == on) return;
+    m_hover = on;
+    update();
+}
+
+void GlassPanel::setPressedLook(bool on) {
+    if (m_pressedLook == on) return;
+    m_pressedLook = on;
+    if (m_pressAnim) { m_pressAnim->stop(); m_pressAnim->deleteLater(); m_pressAnim = nullptr; }
+    m_pressAnim = Ui::animate(this, m_pressT, on ? 1.0 : 0.0, 120, [this](qreal v) { m_pressT = v; update(); },
+                              QEasingCurve::OutCubic, [this, on] { m_pressAnim = nullptr; m_pressT = on ? 1.0 : 0.0; update(); });
+}
+
+void GlassPanel::ensureVariant(Variant &v, bool pressed, const QRect &shape, Glass::Level lvl) {
     const qreal dpr = devicePixelRatioF();
     const int w = qMax(1, int(std::lround(shape.width() * dpr))), h = qMax(1, int(std::lround(shape.height() * dpr)));
-    const Glass::Material mat = Glass::Material::forKind(m_kind, tk());
+    Glass::Material mat = Glass::Material::forKind(m_kind, tk());
+    if (pressed) mat = mat.pressed();
     const qreal radiusDev = cornerRadius() * dpr;
+    const glass::Params dp = Glass::deviceParams(mat, dpr, lvl);
+    auto table = glass::ShapeTable::cached(w, h, float(radiusDev), dp);
     QImage crop;
     QPoint origin(0, 0);
     if (lvl != Glass::Level::Off && !m_noBackdrop) {
-        const int mDev = Glass::backdropMargin(mat, lvl, dpr);
+        const int mDev = Glass::backdropMargin(*table, dp, lvl);
         const int mLog = int(std::ceil(mDev / dpr));
         if (!m_backdropOverride.isNull()) {
             // Test/proof path: the override is in widget-local logical coordinates, at the widget's own dpr.
             const QRect want = shape.adjusted(-mLog, -mLog, mLog, mLog);
-            QImage c(QSize(int(want.width() * dpr), int(want.height() * dpr)), QImage::Format_ARGB32_Premultiplied);
+            QImage c(QSize(int(std::ceil(want.width() * dpr)), int(std::ceil(want.height() * dpr))), QImage::Format_ARGB32_Premultiplied);
             c.setDevicePixelRatio(dpr);
             c.fill(tk().windowTop);
             QPainter p(&c);
@@ -408,41 +463,62 @@ QImage &GlassPanel::material(const QRect &shape, Glass::Level lvl) {
     quint64 key = 1469598103934665603ull;
     key = Glass::mix(key, quint64(w) << 32 | quint64(h));
     key = Glass::mix(key, quint64(radiusDev * 16));
-    key = Glass::mix(key, quint64(m_kind) * 7 + quint64(lvl) * 131 + (tk().dark ? 1 : 0) + quint64(dpr * 100) * 977);
+    key = Glass::mix(key, quint64(m_kind) * 7 + quint64(lvl) * 131 + (tk().dark ? 1 : 0) + quint64(dpr * 100) * 977 + (pressed ? 55555 : 0));
     key = Glass::mix(key, crop.isNull() ? 0 : quint64(qHashBits(crop.constBits(), size_t(crop.sizeInBytes()))));
-    if (key == m_matKey && !m_mat.isNull()) return m_mat;
+    if (key == v.key && v.r.table) return;
     QElapsedTimer t;
     t.start();
-    m_mat = Glass::renderMaterial(crop, origin, w, h, dpr, radiusDev, mat, lvl);
-    m_matKey = key;
+    v.r = Glass::renderMaterialStages(crop, origin, w, h, dpr, radiusDev, mat, lvl);
+    v.key = key;
+    v.finState = -1;
     m_lastMaterialMs = t.nsecsElapsed() / 1e6;
     m_recomputed = true;
-    return m_mat;
+}
+
+const QImage &GlassPanel::finalImage(Variant &v, Glass::Level lvl) {
+    const int state = (m_hover ? 1 : 0) + 2 * int(lvl);
+    if (state != v.finState || v.fin.isNull()) {
+        const Glass::Material mat = Glass::Material::forKind(m_kind, tk());
+        v.fin = v.r.lit(mat.lightScale * (m_hover ? 1.35f : 1.f), lvl != Glass::Level::Off);
+        v.fin.setDevicePixelRatio(devicePixelRatioF());
+        v.finState = state;
+    }
+    return v.fin;
 }
 
 QImage GlassPanel::materialImage() {
-    m_matKey = 0;
-    return material(shapeRect(), effectiveLevel());
+    m_normal = {};
+    const Glass::Level lvl = effectiveLevel();
+    ensureVariant(m_normal, false, shapeRect(), lvl);
+    return finalImage(m_normal, lvl);
 }
 
 void GlassPanel::drawShadow(QPainter &p, const QRect &shape, Glass::Level lvl) {
     if (m_margin <= 0) return;
-    const Tokens &t = tk();
-    // 0 0.5px 3px rgb(0 0 0 / 16%) (50% in dark): a few translucent rings that fade outwards.
-    const qreal base = t.dark ? 0.50 : 0.16;
-    const qreal r = cornerRadius();
-    p.save();
-    p.setRenderHint(QPainter::Antialiasing);
-    p.setBrush(Qt::NoBrush);
-    for (int i = 1; i <= m_margin; ++i) {
-        const qreal f = 1.0 - qreal(i - 1) / m_margin;
-        QColor c(0, 0, 0);
-        c.setAlphaF(base * f * f * (lvl == Glass::Level::Off ? 0.7 : 0.55));
-        p.setPen(QPen(c, 1.0));
-        const QRectF rr = QRectF(shape).adjusted(-i + 0.5, -i + 0.5 + 0.5, i - 0.5, i - 0.5 + 0.5);
-        p.drawRoundedRect(rr, r + i - 0.5, r + i - 0.5);
+    const Glass::Material mat = Glass::Material::forKind(m_kind, tk());
+    if (mat.shadowAlpha <= 0.f) return;
+    const qreal dpr = devicePixelRatioF();
+    const int w = qMax(1, int(std::lround(shape.width() * dpr))), h = qMax(1, int(std::lround(shape.height() * dpr)));
+    const int md = int(std::lround(m_margin * dpr));
+    const qreal radiusDev = cornerRadius() * dpr;
+    quint64 key = Glass::mix(Glass::mix(quint64(w) << 32 | quint64(h), quint64(md)), quint64(radiusDev * 16) + (tk().dark ? 1 : 0) + quint64(lvl) * 3 + quint64(dpr * 100) * 7);
+    if (key != m_shadowKey || m_shadow.isNull()) {
+        const QImage a = glass::shadowAlpha(w, h, float(radiusDev), md, mat.shadowSpread * float(dpr) * 0.65f, mat.shadowOffsetY * float(dpr));
+        m_shadow = QImage(a.size(), QImage::Format_ARGB32_Premultiplied);
+        const float k = mat.shadowAlpha * (lvl == Glass::Level::Off ? 0.7f : 1.f);
+        const QColor base = tk().dark ? QColor(0, 0, 0) : QColor(20, 30, 60);
+        for (int y = 0; y < a.height(); ++y) {
+            const uchar *src = a.constScanLine(y);
+            quint32 *dst = reinterpret_cast<quint32 *>(m_shadow.scanLine(y));
+            for (int x = 0; x < a.width(); ++x) {
+                const float al = src[x] / 255.f * k;
+                dst[x] = (quint32(al * 255 + 0.5f) << 24) | (quint32(base.red() * al + 0.5f) << 16) | (quint32(base.green() * al + 0.5f) << 8) | quint32(base.blue() * al + 0.5f);
+            }
+        }
+        m_shadow.setDevicePixelRatio(dpr);
+        m_shadowKey = key;
     }
-    p.restore();
+    p.drawImage(QPointF(shape.left() - m_margin, shape.top() - m_margin), m_shadow);
 }
 
 void GlassPanel::paintContent(QPainter &, const QRect &) {}
@@ -458,8 +534,14 @@ void GlassPanel::paintEvent(QPaintEvent *) {
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
     drawShadow(p, sr, lvl);
-    const QImage &mat = material(sr, lvl);
-    p.drawImage(sr.topLeft(), mat);
+    ensureVariant(m_normal, false, sr, lvl);
+    p.drawImage(sr.topLeft(), finalImage(m_normal, lvl));
+    if (m_pressT > 0.001) {
+        ensureVariant(m_flat, true, sr, lvl);
+        p.setOpacity(m_pressT);
+        p.drawImage(sr.topLeft(), finalImage(m_flat, lvl));
+        p.setOpacity(1.0);
+    }
     paintContent(p, sr);
     p.end();
     Glass::BackdropHub::instance().painted(this);

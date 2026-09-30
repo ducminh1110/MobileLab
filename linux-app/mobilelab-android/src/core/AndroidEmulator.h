@@ -33,6 +33,9 @@ public:
     explicit AndroidEmulator(QObject *parent = nullptr);
     bool discover();
     bool createAvd(const QString &name, const QString &packageName, const QString &device);
+    // Asynchronous avdmanager run; the callback gets success and avdmanager's output.
+    void createAvdAsync(QObject *owner, const QString &name, const QString &packageName, const QString &device,
+                        std::function<void(bool, const QString &)> done);
     // Starts the emulator detached; returns its pid or -1. Output goes to logFile when given.
     qint64 startAvd(const QString &name, bool noWindow, const QString &logFile = {});
     bool start(const QString &name, bool noWindow = true);

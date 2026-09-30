@@ -8,9 +8,15 @@ AsyncProcess::AsyncProcess(QObject *owner, Callback cb) : QObject(owner), m_cb(s
 }
 
 AsyncProcess *AsyncProcess::run(QObject *owner, const QString &program, const QStringList &args,
-                                int timeoutMs, Callback cb) {
+                                int timeoutMs, Callback cb, const QByteArray &input) {
     auto *p = new AsyncProcess(owner, std::move(cb));
-    connect(p->m_proc, &QProcess::started, p, [p] { p->m_started = true; });
+    connect(p->m_proc, &QProcess::started, p, [p, input] {
+        p->m_started = true;
+        if (!input.isNull()) {
+            p->m_proc->write(input);
+            p->m_proc->closeWriteChannel();
+        }
+    });
     connect(p->m_proc, &QProcess::errorOccurred, p, [p](QProcess::ProcessError e) {
         if (e == QProcess::FailedToStart) p->finish(false);
     });
