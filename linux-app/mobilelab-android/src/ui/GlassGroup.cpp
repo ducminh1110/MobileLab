@@ -1,7 +1,7 @@
 #include "GlassGroup.h"
 #include <QPainter>
 
-GlassGroup::GlassGroup(QWidget *parent) : GlassPanel(parent) {
+GlassGroup::GlassGroup(QWidget *parent, Glass::Kind kind) : GlassPanel(parent, kind) {
     setShape(Shape::Capsule);
     setShadowMargin(3);
     m_layout = new QHBoxLayout(this);

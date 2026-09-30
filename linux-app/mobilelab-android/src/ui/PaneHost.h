@@ -63,6 +63,8 @@ public:
     // Floating mode: outer margin + gap between panels and soft shadows (window level).
     // Divider mode: no margin, a 1px divider line in the gap (inside a card).
     void setFloating(bool floating, int margin, int gap);
+    // Floating mode only: the space above the panels (the toolbar already provides it).
+    void setTopMargin(int px) { m_top = px; layoutPanes(); }
     void setCenter(QWidget *w, int minSize = 320);
     int addPane(Side side, QWidget *w, const Spec &spec);
     void setShown(int id, bool shown, bool animate = true);
@@ -102,7 +104,7 @@ private:
     void animateTo(int id, qreal target, bool animate);
     Orientation m_o;
     bool m_floating = true;
-    int m_margin = 8, m_gap = 8, m_centerMin = 320;
+    int m_margin = 8, m_gap = 8, m_centerMin = 320, m_top = -1;
     QWidget *m_center = nullptr;
     QVector<PaneState> m_panes;
 };

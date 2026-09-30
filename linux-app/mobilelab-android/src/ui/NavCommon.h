@@ -109,7 +109,7 @@ private:
     NavFilterProxy *m_proxy;
     EmptyState *m_empty;
     QString m_sig;
-    QSet<QString> m_seen;
+    QSet<QString> m_userExpanded, m_userCollapsed;   // remembered per id, also while the row is not in the model
     QTimer m_spinTimer;
     qreal m_spin = 0;
     bool m_skeleton = false, m_silent = false, m_spinning = false, m_mouseSelect = false, m_compact = false;

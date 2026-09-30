@@ -26,7 +26,7 @@ TargetEditor::TargetEditor(const AppContext &ctx, QWidget *parent) : QWidget(par
     connect(m_reload, &QAction::triggered, this, &TargetEditor::captureNow);
     connect(m_zoomOut, &QAction::triggered, this, [this] { zoomBy(-1); });
     connect(m_zoomIn, &QAction::triggered, this, [this] { zoomBy(1); });
-    m_bar = new GlassGroup(this);
+    m_bar = new GlassGroup(this, Glass::Kind::Control);
     m_bar->setObjectName("canvas-bar");
     m_bar->addButton(m_toggle, "play.fill");
     m_bar->addButton(m_camera, "camera");
@@ -144,12 +144,12 @@ void TargetEditor::placeChildren() {
 
 QRectF TargetEditor::frameRect() const {
     const qreal aspect = m_image.isNull() ? 0.4615 : qreal(m_image.width()) / m_image.height();
-    const qreal availH = height() - 56 - 44, availW = width() - 60;
+    const qreal availH = height() - 60 - 78, availW = width() - 60;
     const qreal factor = std::pow(1.2, m_zoom);
     qreal h = qMin(availH, 760.0) * factor;
     qreal w = h * aspect + 24;
     if (w > availW * factor) { w = availW * factor; h = (w - 24) / aspect; }
-    return QRectF((width() - w) / 2, 22 + (availH - h) / 2 + (m_zoom > 0 ? 0 : 0), w, h + 24);
+    return QRectF((width() - w) / 2, 22 + (availH - h - 24) / 2, w, h + 24);
 }
 
 void TargetEditor::paintEvent(QPaintEvent *) {

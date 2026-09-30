@@ -20,6 +20,8 @@ Toolbar::Toolbar(const Actions &a, QWidget *parent) : QWidget(parent) {
     m_right->setObjectName("toolbar-panels");
     m_right->addButton(a.debug, "sidebar.bottom");
     m_right->addButton(a.inspector, "sidebar.right");
+    for (auto *g : {m_nav, m_right})
+        for (auto *b : g->buttons()) b->setAccentWhenChecked(false);
     // Tab order follows the layout.
     setTabOrder(m_nav->buttons()[0], m_run->buttons()[0]);
     setTabOrder(m_run->buttons()[0], m_run->buttons()[1]);
@@ -48,7 +50,7 @@ void Toolbar::relayout() {
     const QFont f = Theme::instance().ui(13, QFont::Bold);
     const int titleW = 20 + QFontMetrics(f).horizontalAdvance("MobileLab") + 8;
     // capsule: centred in the window, limited by both sides
-    int capW = qBound(300, width() / 2 - 40, 640);
+    int capW = qBound(340, int(width() * 0.40), 620);
     int capX = (width() - capW) / 2;
     m_showTitle = capX - leftEnd >= titleW + 10;
     if (!m_showTitle && capX < leftEnd) capX = leftEnd;

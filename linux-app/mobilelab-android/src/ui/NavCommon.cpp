@@ -174,8 +174,14 @@ NavTree::NavTree(QWidget *parent) : QTreeView(parent) {
     });
     connect(&Theme::instance(), &Theme::changed, this, [this] { viewport()->update(); });
     connect(&Theme::instance(), &Theme::motionChanged, this, &NavTree::updateSpin);
-    connect(this, &QTreeView::expanded, this, [this](const QModelIndex &i) { animateArrow(i, true); });
-    connect(this, &QTreeView::collapsed, this, [this](const QModelIndex &i) { animateArrow(i, false); });
+    connect(this, &QTreeView::expanded, this, [this](const QModelIndex &i) {
+        if (!m_silent) { const QString id = i.data(NavRole::Id).toString(); m_userExpanded.insert(id); m_userCollapsed.remove(id); }
+        animateArrow(i, true);
+    });
+    connect(this, &QTreeView::collapsed, this, [this](const QModelIndex &i) {
+        if (!m_silent) { const QString id = i.data(NavRole::Id).toString(); m_userCollapsed.insert(id); m_userExpanded.remove(id); }
+        animateArrow(i, false);
+    });
     connect(this, &QTreeView::activated, this, [this](const QModelIndex &i) {
         const Location l = locationOf(i);
         if (l.kind != Location::Welcome || !i.data(NavRole::Loc).isValid()) emit locationRequested(l);
@@ -242,14 +248,14 @@ void NavTree::collectExpanded(const QModelIndex &parent, QSet<QString> &out) con
 }
 
 void NavTree::applyExpansion(const QModelIndex &parent, const QSet<QString> &expanded) {
+    Q_UNUSED(expanded);
     for (int i = 0; i < m_proxy->rowCount(parent); ++i) {
         const QModelIndex c = m_proxy->index(i, 0, parent);
         const QString id = c.data(NavRole::Id).toString();
         if (m_proxy->rowCount(c) > 0) {
-            const bool firstSight = !m_seen.contains(id);
-            if (expanded.contains(id) || (firstSight && c.data(NavRole::Expand).toBool())) setExpanded(c, true);
-            m_seen.insert(id);
-            applyExpansion(c, expanded);
+            const bool open = m_userExpanded.contains(id) || (!m_userCollapsed.contains(id) && c.data(NavRole::Expand).toBool());
+            if (open) setExpanded(c, true);
+            applyExpansion(c, {});
         }
     }
 }
@@ -284,7 +290,12 @@ void NavTree::rebuild(const std::function<void(QStandardItemModel &)> &fill) {
 
 void NavTree::setFilterText(const QString &t) {
     m_proxy->setText(t);
-    if (!t.trimmed().isEmpty()) expandAll();
+    if (!t.trimmed().isEmpty()) {
+        const bool was = m_silent;
+        m_silent = true;
+        expandAll();
+        m_silent = was;
+    }
     m_empty->setVisible(m_proxy->rowCount() == 0 && m_model->rowCount() > 0 ? false : m_model->rowCount() == 0);
     viewport()->update();
 }
@@ -351,14 +362,14 @@ void NavTree::drawBranches(QPainter *p, const QRect &rect, const QModelIndex &id
     if (m_proxy->rowCount(idx) == 0) return;
     const Tokens &t = tk();
     const bool sel = selectionModel()->isSelected(idx);
-    const QColor c = (sel && hasFocus()) ? t.accentText : t.textTertiary;
+    const QColor c = (sel && hasFocus()) ? t.accentText : t.textSecondary;
     const int cell = 14;
     const QString id = idx.data(NavRole::Id).toString();
     const qreal open = m_arrow.contains(id) ? m_arrow.value(id) : (isExpanded(idx) ? 1.0 : 0.0);
     p->save();
     p->translate(rect.right() - cell + 1 + 5, rect.center().y());
     p->rotate(open * 90.0);       // right-pointing chevron rotates down
-    Icons::paint(p, "chevron.right", QRectF(-5, -5, 10, 10), c);
+    Icons::paint(p, "chevron.right", QRectF(-6, -6, 12, 12), c);
     p->restore();
 }
 
@@ -454,7 +465,7 @@ void NavTree::paintEvent(QPaintEvent *e) {
 
 // --- NavTabBar ----------------------------------------------------------------------------------------
 
-NavTabBar::NavTabBar(QWidget *parent) : GlassPanel(parent) {
+NavTabBar::NavTabBar(QWidget *parent) : GlassPanel(parent, Glass::Kind::Field) {
     setShape(Shape::Capsule);
     setShadowMargin(3);
     setObjectName("navtabs");
@@ -473,8 +484,8 @@ void NavTabBar::setTabs(const QVector<Tab> &tabs) {
         b->setCircular(true);
         b->setHoverEnabled(false);
         b->setCheckedTint(tk().accentText);
-        b->setTint(tk().textSecondary);
-        b->setGlyphSize(16);
+        b->setTint(Ui::withAlpha(tk().text, 200));
+        b->setGlyphSize(17);
         Ui::setTip(b, tabs[i].name, tabs[i].shortcut);
         b->setAccessibleName(tabs[i].name);
         b->installEventFilter(this);
@@ -483,7 +494,7 @@ void NavTabBar::setTabs(const QVector<Tab> &tabs) {
         m_buttons << b;
     }
     connect(&Theme::instance(), &Theme::changed, this, [this] {
-        for (auto *b : std::as_const(m_buttons)) { b->setCheckedTint(tk().accentText); b->setTint(tk().textSecondary); }
+        for (auto *b : std::as_const(m_buttons)) { b->setCheckedTint(tk().accentText); b->setTint(Ui::withAlpha(tk().text, 200)); }
     });
     for (int i = 0; i + 1 < m_buttons.size(); ++i) setTabOrder(m_buttons[i], m_buttons[i + 1]);
     setCurrent(m_current, false, false);

@@ -398,12 +398,13 @@ void RunEditor::rebuildSummary() {
     hh->addLayout(tv, 1);
     root->addWidget(head);
     // counters
-    int passed = 0, failed = 0, skipped = 0;
+    int passed = 0, failed = 0, skipped = 0, pending = 0;
     auto count = [&](const TargetResult &t) {
         for (const auto &s : t.steps) {
             if (s.state == RunState::Passed) ++passed;
             else if (s.state == RunState::Failed) ++failed;
-            else ++skipped;
+            else if (s.state == RunState::Skipped || s.state == RunState::Cancelled) ++skipped;
+            else ++pending;
         }
     };
     if (tg) count(*tg); else for (const auto &t : r->targets) count(t);
@@ -423,10 +424,11 @@ void RunEditor::rebuildSummary() {
     counter(passed, "PASSED", ThemedLabel::Role::Pass);
     counter(failed, "FAILED", failed ? ThemedLabel::Role::Fail : ThemedLabel::Role::Secondary);
     counter(skipped, "SKIPPED", ThemedLabel::Role::Secondary);
+    if (pending) counter(pending, "PENDING", ThemedLabel::Role::Secondary);
     ch->addStretch();
     root->addWidget(counters);
     auto *bar = new StatBar(content);
-    bar->setCounts(passed, failed, skipped);
+    bar->setCounts(passed, failed, skipped + pending);
     root->addWidget(bar);
     // failures
     QVector<const StepResult *> fails;

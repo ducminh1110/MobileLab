@@ -20,12 +20,12 @@ JumpBar::JumpBar(QAction *back, QAction *forward, QAction *related, QAction *opt
     m_grid->setTint(tk().textTertiary);
     Ui::setTip(m_grid, "Recent Locations");
     connect(m_grid, &QAbstractButton::clicked, this, [this] { emit gridRequested(m_grid->mapToGlobal(QPoint(0, m_grid->height() + 4))); });
-    m_nav = new GlassGroup(this);
+    m_nav = new GlassGroup(this, Glass::Kind::Field);
     m_nav->setObjectName("jump-nav");
     m_nav->setButtonSize(24, 22);
     m_nav->addButton(back, "chevron.left");
     m_nav->addButton(forward, "chevron.right");
-    m_trail = new GlassGroup(this);
+    m_trail = new GlassGroup(this, Glass::Kind::Field);
     m_trail->setObjectName("jump-trailing");
     m_trail->setButtonSize(26, 22);
     m_trail->addButton(related, "arrow.left.arrow.right");

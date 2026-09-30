@@ -40,8 +40,8 @@ Tokens Theme::tokens(bool dark) {
         k.warn = c("#ff9f0a"); k.breakpoint = c("#097dfe");
         k.synComment = c("#5d6c79"); k.synKeyword = c("#ad3da4"); k.synString = c("#d12f1b"); k.synNumber = c("#272ad8");
         k.synType = c("#703daa"); k.synIdentifier = c("#326d74"); k.synError = c("#ff3b30");
-        k.windowTop = c("#e7eef8"); k.windowBottom = c("#dde6f2");
-        k.blobA = a(96, 165, 255, 0.34); k.blobB = a(170, 140, 255, 0.20);
+        k.windowTop = c("#eef4fb"); k.windowBottom = c("#e2eaf4");
+        k.blobA = a(110, 175, 255, 0.24); k.blobB = a(170, 150, 255, 0.13);
         k.panelBorder = a(0, 0, 0, 0.07); k.shadow = a(20, 30, 60, 0.20);
         k.glassTintTop = a(255, 255, 255, 0.50); k.glassTintBottom = a(255, 255, 255, 0.30);
         k.glassRimLight = a(255, 255, 255, 0.95); k.glassRimDark = a(0, 0, 0, 0.14);

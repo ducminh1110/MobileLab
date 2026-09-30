@@ -25,6 +25,8 @@
 
 namespace {
 
+QColor folderTint() { return Ui::mix(tk().folder, tk().sidebar, tk().dark ? 0.15 : 0.40); }
+
 QStandardItem *makeItem(const QString &text, const QString &id, const QString &kind, const QString &icon = {}, const QColor &iconColor = {}) {
     auto *it = new QStandardItem(text);
     it->setEditable(false);
@@ -158,13 +160,13 @@ void DevicesPage::refresh() {
             apiOf[api] = tg.api;
         }
         if (!tree.isEmpty()) {
-            auto *root = makeItem("Android Virtual Devices", "root:avd", "group", "folder.fill", t.folder);
+            auto *root = makeItem("Android Virtual Devices", "root:avd", "group", "folder.fill", folderTint());
             root->setData(true, NavRole::Expand);
             root->setData(true, NavRole::Bold);
             m.appendRow(root);
             for (auto api = tree.end(); api != tree.begin();) {
                 --api;
-                auto *apiItem = makeItem(androidName(apiOf[api.key()]), "api:" + apiOf[api.key()], "api", "folder.fill", t.folder);
+                auto *apiItem = makeItem(androidName(apiOf[api.key()]), "api:" + apiOf[api.key()], "api", "folder.fill", folderTint());
                 apiItem->setData(true, NavRole::Expand);
                 root->appendRow(apiItem);
                 QStringList abis = api.value().keys();
@@ -174,7 +176,7 @@ void DevicesPage::refresh() {
                 });
                 for (const auto &abi : abis) {
                     const auto &list = api.value()[abi];
-                    auto *abiItem = makeItem(abi, "abi:" + apiOf[api.key()] + ":" + abi, "abi", "folder.fill", t.folder);
+                    auto *abiItem = makeItem(abi, "abi:" + apiOf[api.key()] + ":" + abi, "abi", "folder.fill", folderTint());
                     abiItem->setData(list.first().stability, NavRole::Sub);
                     abiItem->setData(true, NavRole::Expand);
                     apiItem->appendRow(abiItem);
@@ -190,7 +192,7 @@ void DevicesPage::refresh() {
             }
         }
         if (m_ctx.container && (m_ctx.containerProbed || !m_ctx.container)) {
-            auto *root = makeItem("Containers", "root:containers", "group", "folder.fill", t.folder);
+            auto *root = makeItem("Containers", "root:containers", "group", "folder.fill", folderTint());
             root->setData(true, NavRole::Expand);
             root->setData(true, NavRole::Bold);
             const QJsonObject d = m_ctx.container->diagnostics().value("waydroid").toObject();
@@ -259,7 +261,7 @@ void TestsPage::refresh() {
             if (m_failedOnly && r.state != RunState::Failed) continue;
             if (m_recentOnly && r.started.toLocalTime() < QDateTime::currentDateTime().addDays(-1)) continue;
             if (!root) {
-                root = makeItem("Runs", "root:runs", "group", "folder.fill", t.folder);
+                root = makeItem("Runs", "root:runs", "group", "folder.fill", folderTint());
                 root->setData(true, NavRole::Expand);
                 root->setData(true, NavRole::Bold);
                 m.appendRow(root);
@@ -335,7 +337,7 @@ void IssuesPage::refresh() {
             grouped[i.category][i.group] << i;
         }
         for (const auto &cat : categoryOrder) {
-            auto *ci = makeItem(cat, "cat:" + cat, "group", "folder.fill", t.folder);
+            auto *ci = makeItem(cat, "cat:" + cat, "group", "folder.fill", folderTint());
             ci->setData(true, NavRole::Expand);
             ci->setData(true, NavRole::Bold);
             m.appendRow(ci);
@@ -521,6 +523,7 @@ void FindPage::search() {
 struct GaugeRowData {
     QString icon, label, value, tip;
     qreal fraction = -1;
+    QVector<qreal> history;   // recent samples 0..1, drawn as a mini bar chart under the label
 };
 
 class GaugeColumn : public QWidget {
@@ -581,14 +584,16 @@ protected:
             p.setPen(t.textSecondary);
             p.drawText(QRect(width() - 8 - 130, y + 2, 122, 22), Qt::AlignVCenter | Qt::AlignRight, r.value);
             if (r.fraction >= 0) {
-                // thin usage bar under the value, like the reference's gauge rows
-                const QRectF track(36, y + 26, width() - 36 - 16, 3);
+                // recent samples as thin vertical bars under the label (the newest on the right), like the reference
                 p.setPen(Qt::NoPen);
-                p.setBrush(Ui::withAlpha(t.text, 16));
-                p.drawRoundedRect(track, 1.5, 1.5);
-                const qreal f = qBound<qreal>(0.0, r.fraction, 1.0);
                 p.setBrush(t.accent);
-                p.drawRoundedRect(QRectF(track.left(), track.top(), qMax<qreal>(2.0, track.width() * f), 3), 1.5, 1.5);
+                const QVector<qreal> h = r.history.isEmpty() ? QVector<qreal>{r.fraction} : r.history;
+                const int n = h.size();
+                for (int i = 0; i < n; ++i) {
+                    const qreal v = qBound<qreal>(0.0, h[i], 1.0);
+                    const qreal bh = qMax<qreal>(2.0, 9.0 * v);
+                    p.drawRect(QRectF(37 + i * 3.0, y + 31 - bh, 2, bh));
+                }
             }
             y += rowH;
         }
@@ -684,6 +689,15 @@ void DebugPage::refresh() {
                         s.capacity() ? double(s.usedCost()) / s.capacity() : -1.0});
     }
     rows.push_back({"cpu", "Host load", QString("%1 (1 min)").arg(h.load1(), 0, 'f', 2), QString("%1 logical cores").arg(h.cores()), qMin(1.0, h.load1() / h.cores())});
+    // keep the last 24 samples per row for the mini charts
+    if (sender() == &m_timer || m_history.isEmpty()) {
+        for (auto &r : rows) {
+            auto &hist = m_history[r.label];
+            if (r.fraction >= 0) hist.push_back(r.fraction);
+            while (hist.size() > 24) hist.removeFirst();
+        }
+    }
+    for (auto &r : rows) r.history = m_history.value(r.label);
     m_gauges->setTitle("MobileLab Android", "PID " + QString::number(h.pid()));
     m_gauges->setRows(rows);
 

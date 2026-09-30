@@ -229,6 +229,8 @@ void PaneHost::layoutPanes() {
     const int total = horiz ? width() : height();
     const int cross = horiz ? height() : width();
     const int margin = m_floating ? m_margin : 0;
+    const int top = horiz && m_floating && m_top >= 0 ? m_top : margin;
+    const int crossSpan = horiz ? cross - (m_floating ? top + margin : 0) : cross;
     const int gap = m_gap;
     // Effective sizes, shrunk if the centre would get too small.
     QVector<int> eff(m_panes.size());
@@ -257,9 +259,9 @@ void PaneHost::layoutPanes() {
         const bool vis = sz > 0;
         s.w->setVisible(vis);
         s.handle->setVisible(vis && s.shown);
-        if (horiz) s.w->setGeometry(lead, margin, sz, cross - (m_floating ? 2 * margin : 0));
+        if (horiz) s.w->setGeometry(lead, top, sz, crossSpan);
         else s.w->setGeometry(0, lead, cross, sz);
-        const QRect hr = horiz ? QRect(lead + sz + g / 2 - 4, margin, 8, cross - 2 * margin) : QRect(0, lead + sz + g / 2 - 3, cross, 7);
+        const QRect hr = horiz ? QRect(lead + sz + g / 2 - 4, top, 8, crossSpan) : QRect(0, lead + sz + g / 2 - 3, cross, 7);
         s.handle->setGeometry(hr);
         s.handle->raise();
         lead += sz + g;
@@ -273,15 +275,15 @@ void PaneHost::layoutPanes() {
         s.w->setVisible(vis);
         s.handle->setVisible(vis && s.shown);
         trail -= sz;
-        if (horiz) s.w->setGeometry(trail, margin, sz, cross - (m_floating ? 2 * margin : 0));
+        if (horiz) s.w->setGeometry(trail, top, sz, crossSpan);
         else s.w->setGeometry(0, trail, cross, sz);
-        const QRect hr = horiz ? QRect(trail - g + g / 2 - 4, margin, 8, cross - 2 * margin) : QRect(0, trail - g + g / 2 - 3, cross, 7);
+        const QRect hr = horiz ? QRect(trail - g + g / 2 - 4, top, 8, crossSpan) : QRect(0, trail - g + g / 2 - 3, cross, 7);
         s.handle->setGeometry(hr);
         s.handle->raise();
         trail -= g;
     }
     const int csz = qMax(0, trail - lead);
-    if (horiz) m_center->setGeometry(lead, margin, csz, cross - (m_floating ? 2 * margin : 0));
+    if (horiz) m_center->setGeometry(lead, top, csz, crossSpan);
     else m_center->setGeometry(0, lead, cross, csz);
     update();
 }

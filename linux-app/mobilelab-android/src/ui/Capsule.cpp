@@ -64,7 +64,7 @@ Capsule::Layout Capsule::computeLayout(const QRect &shape) const {
     L.stateText = m_state.state;
     L.detailText = m_state.detail;
     const int spinW = (m_state.spinning || m_state.tone == Tone::Fail || m_state.tone == Tone::Warn) ? 18 : 0;
-    L.stateW = mSemi.horizontalAdvance(L.stateText);
+    { const int sp = L.stateText.lastIndexOf(' '); L.stateW = sp > 0 ? mMed.horizontalAdvance(L.stateText.left(sp + 1)) + mSemi.horizontalAdvance(L.stateText.mid(sp + 1)) : mSemi.horizontalAdvance(L.stateText); }
     int statusW = spinW + L.stateW + (L.detailText.isEmpty() ? 0 : 12 + mReg.horizontalAdvance(L.detailText)) + 16;
     const int rightPad = 6;
     int maxStatus = shape.right() - rightPad - x - 90;   // keep at least 90px for the destination
@@ -142,9 +142,18 @@ void Capsule::paintContent(QPainter &p, const QRect &shape) {
         Icons::paint(&p, "exclamationmark.triangle", QRectF(x, cy - 7, 14, 14), t.warn);
         x += 18;
     }
-    p.setFont(fSemi);
-    p.setPen(t.text);
-    p.drawText(QRect(x, r.top(), L.stateW + 2, r.height()), Qt::AlignVCenter | Qt::AlignLeft, L.stateText);
+    {
+        // "Build **Succeeded**": only the last word is semibold
+        const int sp = L.stateText.lastIndexOf(' ');
+        const QString head = sp > 0 ? L.stateText.left(sp + 1) : QString();
+        const QString tail = sp > 0 ? L.stateText.mid(sp + 1) : L.stateText;
+        p.setPen(t.text);
+        p.setFont(fMed);
+        p.drawText(QRect(x, r.top(), L.stateW + 4, r.height()), Qt::AlignVCenter | Qt::AlignLeft, head);
+        const int hw = QFontMetrics(fMed).horizontalAdvance(head);
+        p.setFont(fSemi);
+        p.drawText(QRect(x + hw, r.top(), L.stateW + 4, r.height()), Qt::AlignVCenter | Qt::AlignLeft, tail);
+    }
     x += L.stateW;
     if (!L.detailText.isEmpty()) {
         p.setFont(fReg);

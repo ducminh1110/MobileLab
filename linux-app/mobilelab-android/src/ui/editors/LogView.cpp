@@ -290,7 +290,7 @@ void LogView::paintEvent(QPaintEvent *) {
             const QRectF pr(numRight - pw + 10, y + 1, pw + 2, rh - 2);
             p.setRenderHint(QPainter::Antialiasing, true);
             p.setPen(Qt::NoPen);
-            p.setBrush(bp ? t.breakpoint : (isErrorLine ? t.fail : t.breakpoint));
+            p.setBrush(t.breakpoint);
             p.drawRoundedRect(pr, 7, 7);
             p.setRenderHint(QPainter::Antialiasing, false);
             p.setPen(Qt::white);

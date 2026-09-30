@@ -1,6 +1,7 @@
 #include "SettingsSheet.h"
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QPainter>
 #include <QRadioButton>

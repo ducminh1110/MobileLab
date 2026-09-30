@@ -33,6 +33,7 @@ FilterBar::FilterBar(QWidget *parent) : GlassPanel(parent, Glass::Kind::Field) {
     l->setSpacing(2);
     m_edit = new GlassLineEdit(this);
     m_edit->setPlaceholderText("Filter");
+    { QPalette pl = m_edit->palette(); pl.setColor(QPalette::PlaceholderText, Ui::withAlpha(tk().text, 120)); m_edit->setPalette(pl); }
     m_edit->setAccessibleName("Filter");
     l->addWidget(m_edit, 1);
     m_clear = new IconButton("xmark.circle.fill", this);

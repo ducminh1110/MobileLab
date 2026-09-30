@@ -94,9 +94,10 @@ Material Material::forKind(Kind k, const Tokens &t) {
         m.tintBottom = bottom;
         m.rimLight = QColor(255, 255, 255, t.dark ? 90 : 150);
         m.rimDark = QColor(0, 0, 0, 40);
-        p.refraction = 0.15f;
+        p.refraction = 0.10f;
         p.chroma = 0.f;
-        p.specular = 0.55f;
+        p.specular = 0.22f;
+        p.edgeHighlight = 0.12f;
         p.zRadius = 12.f;
         p.blur = 3.f;
         m.opaque = t.accent;
@@ -104,15 +105,17 @@ Material Material::forKind(Kind k, const Tokens &t) {
         break;
     }
     case Kind::Field: {
-        const QColor f = t.field;
-        m.tintTop = QColor(f.red(), f.green(), f.blue(), 214);
-        m.tintBottom = QColor(f.red(), f.green(), f.blue(), 196);
-        m.rimLight = QColor(255, 255, 255, t.dark ? 22 : 120);
-        m.rimDark = QColor(0, 0, 0, t.dark ? 90 : 26);
+        // Flat grey glass (navigator tab bar, filter bars, jump bar controls): a faint dark veil in light mode,
+        // a faint light veil in dark mode, hardly any highlight.
+        m.tintTop = t.dark ? QColor(255, 255, 255, 22) : QColor(30, 50, 80, 22);
+        m.tintBottom = t.dark ? QColor(255, 255, 255, 16) : QColor(30, 50, 80, 30);
+        m.rimLight = QColor(255, 255, 255, t.dark ? 26 : 70);
+        m.rimDark = QColor(0, 0, 0, t.dark ? 70 : 22);
+        m.lightScale = t.dark ? 0.5f : 0.35f;
         p.refraction = 0.18f;
         p.chroma = 0.f;
-        p.specular = 0.08f;
-        p.edgeHighlight = 0.12f;
+        p.specular = 0.06f;
+        p.edgeHighlight = 0.06f;
         p.zRadius = 10.f;
         m.opaque = t.field;
         m.shadowAlpha = 0.f;

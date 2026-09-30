@@ -95,6 +95,7 @@ protected:
 private:
     GaugeColumn *m_gauges;
     QTimer m_timer;
+    QHash<QString, QVector<qreal>> m_history;
     qint64 m_artifactBytes = -1;
     qint64 m_artifactStamp = 0;
 };
