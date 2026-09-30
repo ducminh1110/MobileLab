@@ -66,7 +66,7 @@ int ArtifactCollector::cleanOlderThan(int days) {
     const QDateTime cutoff = QDateTime::currentDateTime().addDays(-qMax(0, days));
     QDir root(m_root);
     for (const auto &e : root.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        if (e.lastModified() < cutoff && QDir(e.absoluteFilePath()).removeRecursively()) ++removed;
+        if (e.lastModified() <= cutoff && QDir(e.absoluteFilePath()).removeRecursively()) ++removed;
     }
     return removed;
 }
