@@ -176,35 +176,40 @@ export function edgeWeight(depth, w, h, p = GLASS_DEFAULTS) {
   return 1 - smooth(0, p.band > 0 ? p.band : Math.max(3, zR * 0.55), depth);
 }
 
+/** Builds the vector map (and, for frost, the edge-weight map). Big surfaces are sampled at half resolution: the field is
+ *  smooth, the feImage stretches it back over the element's full box, and a sheet costs ~10ms instead of ~45ms. */
 export function buildMaps(w, h, r, params = GLASS_DEFAULTS, withEdge = false) {
-  const vec = new Float32Array(w * h * 2);
-  const edge = withEdge ? new Uint8ClampedArray(w * h * 4) : null;
+  const ds = w * h > 90000 ? 2 : 1;
+  const mw = Math.ceil(w / ds);
+  const mh = Math.ceil(h / ds);
+  const vec = new Float32Array(mw * mh * 2);
+  const edge = withEdge ? new Uint8ClampedArray(mw * mh * 4) : null;
   let peak = 0.5;
-  for (let y = 0; y < h; y += 1) {
-    for (let x = 0; x < w; x += 1) {
-      const [vx, vy, d] = refractionAt(x + 0.5 - w / 2, y + 0.5 - h / 2, w, h, r, params);
-      const i = (y * w + x) * 2;
+  for (let y = 0; y < mh; y += 1) {
+    for (let x = 0; x < mw; x += 1) {
+      const [vx, vy, d] = refractionAt((x + 0.5) * (w / mw) - w / 2, (y + 0.5) * (h / mh) - h / 2, w, h, r, params);
+      const i = (y * mw + x) * 2;
       vec[i] = vx;
       vec[i + 1] = vy;
       const m = Math.max(Math.abs(vx), Math.abs(vy));
       if (m > peak) peak = m;
       if (edge) {
         const v = Math.round(255 * edgeWeight(Math.max(d, 0), w, h, params));
-        const j = (y * w + x) * 4;
+        const j = (y * mw + x) * 4;
         edge[j] = edge[j + 1] = edge[j + 2] = v;
         edge[j + 3] = 255;
       }
     }
   }
   const scale = peak * 2; // feDisplacementMap: offset = scale * (channel - 0.5)
-  const data = new Uint8ClampedArray(w * h * 4);
+  const data = new Uint8ClampedArray(mw * mh * 4);
   for (let i = 0, j = 0; i < vec.length; i += 2, j += 4) {
     data[j] = Math.round(255 * (0.5 + vec[i] / scale));
     data[j + 1] = Math.round(255 * (0.5 + vec[i + 1] / scale));
     data[j + 2] = 128;
     data[j + 3] = 255;
   }
-  return { data, edge, scale };
+  return { data, edge, scale, width: mw, height: mh };
 }
 
 /** Kept for tests and the proof page: the vector map only. */
@@ -222,7 +227,7 @@ function mapsFor(key, w, h, r, params, withEdge) {
   const hit = maps.get(key);
   if (hit) { maps.delete(key); maps.set(key, hit); return hit; }
   const built = buildMaps(w, h, r, params, withEdge);
-  const entry = { vector: toUrl(built.data, w, h), edge: built.edge ? toUrl(built.edge, w, h) : "", scale: built.scale };
+  const entry = { vector: toUrl(built.data, built.width, built.height), edge: built.edge ? toUrl(built.edge, built.width, built.height) : "", scale: built.scale };
   maps.set(key, entry);
   if (maps.size > CACHE_LIMIT) maps.delete(maps.keys().next().value);
   return entry;

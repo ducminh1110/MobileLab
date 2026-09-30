@@ -52,11 +52,12 @@
 .row.dim { color: var(--text-tertiary); }
 .row[aria-disabled="true"] { cursor: default; }
 .row[aria-disabled="true"]:hover { background: none; }
-.row.root, .row.group { font-weight: 600; }
+.row.root { font-weight: 500; }
+.row.group { font-weight: 600; }
 .row.group { font-size: 12px; }
 
-.disc { display: grid; place-items: center; width: 12px; flex: none; color: var(--text-secondary); margin-left: 0; }
-.disc .ic { stroke-width: 2; }
+.disc { display: grid; place-items: center; width: 12px; flex: none; color: color-mix(in srgb, var(--text) 62%, transparent); margin-left: 0; }
+.disc .ic { stroke-width: 2.3; width: 11px; height: 11px; }
 .disc .ic { transition: transform 0.16s ease; }
 .row[aria-expanded="true"] > .disc .ic { transform: rotate(90deg); }
 .disc.none { visibility: hidden; }
