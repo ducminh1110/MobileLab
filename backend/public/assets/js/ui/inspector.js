@@ -195,7 +195,7 @@ function inspectorHtml() {
   const tab = prefs.inspTab;
   const body = tab === "history" ? historyHtml() : tab === "help" ? helpHtml() : attributesHtml();
   return html`
-    <div class="insp-tabs-row"><div class="insp-tabs glass glass-capsule" data-glass-shape="capsule" role="tablist" aria-label="Inspector">
+    <div class="insp-tabs-row"><div class="insp-tabs glass glass-capsule glass-tabs" data-glass-shape="capsule" role="tablist" aria-label="Inspector">
       ${TABS.map((t) => html`<button type="button" class="it${tab === t.id ? " selected" : ""}" role="tab" id="itab-${t.id}" data-action="insp-tab" data-arg="${t.id}" aria-selected="${tab === t.id ? "true" : "false"}" aria-controls="insp-body" tabindex="${tab === t.id ? 0 : -1}" title="${t.label}" aria-label="${t.label}">${icon(t.icon, "ic-16")}</button>`)}
       <button type="button" class="it it-close" data-action="close-sheet" title="Close" aria-label="Close inspector">${icon("xmark", "ic-14")}</button>
     </div></div>

@@ -100,7 +100,9 @@
 .row mark, .row-label mark { background: color-mix(in srgb, var(--warn) 55%, transparent); color: inherit; border-radius: 2px; }
 
 .row.gauge { height: 38px; align-items: flex-start; }
-.row.gauge .row-icon, .row.gauge .row-label, .row.gauge .row-trail, .row.gauge .disc { margin-top: 0; }
+.row.gauge + .row.gauge { box-shadow: inset 0 0.5px 0 var(--divider); border-radius: 0; }
+.row.gauge .row-icon { margin-top: 3px; }
+.row.gauge .row-label, .row.gauge .row-trail, .row.gauge .disc { margin-top: 0; }
 .row .spark {
   position: absolute; left: 38px; bottom: 3px; width: calc(100% - 52px); height: 9px;
   fill: var(--accent); opacity: 0.85;

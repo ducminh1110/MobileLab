@@ -11,7 +11,7 @@ let toasts = [];
 
 function render() {
   const host = document.getElementById("toasts");
-  patch(host, html`${toasts.map((t) => html`<div class="toast toast-${t.kind} glass glass-menu glass-frosted" data-glass-shape="round" data-glass-radius="12" role="${t.kind === "error" ? "alert" : "status"}" data-key="t-${t.id}">
+  patch(host, html`${toasts.map((t) => html`<div class="toast toast-${t.kind} glass glass-menu glass-frosted" data-glass-shape="round" data-glass-radius="12" data-glass-frost="12" data-glass-band="8" role="${t.kind === "error" ? "alert" : "status"}" data-key="t-${t.id}">
     <span class="toast-ic">${icon(t.kind === "error" ? "exclamationmark.triangle.fill" : t.kind === "success" ? "checkmark.circle.fill" : "info.circle.fill", "ic-16")}</span>
     <span class="toast-msg">${t.message}</span>
     <button type="button" class="toast-x" data-action="toast-close" data-id="${t.id}" aria-label="Dismiss" title="Dismiss">${icon("xmark", "ic-12")}</button>

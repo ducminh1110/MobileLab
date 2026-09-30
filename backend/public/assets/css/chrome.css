@@ -95,7 +95,7 @@
 .toolbar {
   position: relative;
   display: grid;
-  grid-template-columns: max(calc(var(--nav-col) + var(--nav-gap)), var(--tb-left-min)) minmax(0, 1fr) minmax(0, 560px) minmax(0, 1fr);
+  grid-template-columns: max(calc(var(--nav-col) + var(--nav-gap)), var(--tb-left-min)) minmax(44px, 1fr) minmax(0, 560px) minmax(max-content, 1fr);
   align-items: center;
   height: var(--toolbar-h);
   padding: 0 var(--pad);
@@ -188,6 +188,13 @@
 .mi:focus .mi-kbd, .mi:hover:not(:disabled) .mi-kbd { color: rgb(255 255 255 / 80%); }
 .menu-sep { height: 1px; margin: 5px 6px; background: var(--menu-border); }
 .menu-header { padding: 4px 10px 2px 22px; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--text-secondary); }
+
+/* medium windows: the title keeps only its mark so the capsule never collides with the panel toggles */
+@media (max-width: 1180px) {
+  .app[data-layout="wide"] .tb-title { padding: 0 6px; }
+  .app[data-layout="wide"] .app-menu span { display: none; }
+  .app[data-layout="wide"] .capsule { max-width: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .menu { animation: none; }

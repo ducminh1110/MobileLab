@@ -17,7 +17,8 @@
   --glass-rim-lo: light-dark(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.06));
   --glass-rim-edge: light-dark(rgb(30 50 80 / 0.10), rgb(0 0 0 / 0.55));
   --glass-sheen: light-dark(rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.16));
-  --glass-shadow: 0 0.5px 1.5px light-dark(rgb(20 40 70 / 0.14), rgb(0 0 0 / 0.4));
+  --glass-shadow: 0 0.5px 1.5px light-dark(rgb(20 40 70 / 0.14), rgb(0 0 0 / 0.4)), 0 3px 9px -3px light-dark(rgb(20 40 70 / 0.10), rgb(0 0 0 / 0.35));
+  --glass-glow: inset 0 0 6px light-dark(rgb(255 255 255 / 0.45), rgb(255 255 255 / 0.10));
   --glass-shadow-lift: 0 6px 18px light-dark(rgb(20 40 70 / 0.16), rgb(0 0 0 / 0.5));
   --glass-solid: light-dark(#eef2f6, #3a3b41);
   --glass-solid-white: light-dark(#ffffff, #45464d);
@@ -36,13 +37,15 @@
   background: linear-gradient(180deg, var(--glass-tint-top), var(--glass-tint-bottom));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  box-shadow: var(--glass-shadow), 0 0 0 0.5px var(--glass-rim-edge);
+  box-shadow: var(--glass-glow), var(--glass-shadow), 0 0 0 0.5px var(--glass-rim-edge);
   transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 :root[data-glass="refract"]:not([data-glass-busy]) .glass {
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)) var(--glass-filter, );
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)) var(--glass-filter, );
+  -webkit-backdrop-filter: blur(var(--glass-blur)) var(--glass-filter, ) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) var(--glass-filter, ) saturate(var(--glass-sat));
 }
+/* the custom properties live in the element's CSSOM style (JS, see core/glass.js): --glass-filter is the SVG
+   filter of its size class, and --glass-blur is 0px when the filter blurs the interior itself (frost) */
 /* Chromium applies the filter list left to right: with refraction the blur is small and the tint lighter, so the
    bending stays visible. */
 :root[data-glass="refract"] .glass { --glass-blur: 2px; --glass-tint-top: light-dark(rgb(243 246 250 / 0.56), rgb(74 78 90 / 0.42)); --glass-tint-bottom: light-dark(rgb(228 234 241 / 0.4), rgb(46 48 56 / 0.36)); }
@@ -60,8 +63,8 @@
 /* text-heavy surfaces: menus, popovers, sheets, toasts. More tint, more blur, so contrast holds over any backdrop. */
 :root[data-glass] .glass.glass-menu {
   --glass-blur: 24px;
-  --glass-tint-top: light-dark(rgb(252 253 255 / 0.82), rgb(58 60 68 / 0.8));
-  --glass-tint-bottom: light-dark(rgb(246 248 251 / 0.76), rgb(48 50 58 / 0.76));
+  --glass-tint-top: light-dark(rgb(252 253 255 / 0.88), rgb(58 60 68 / 0.86));
+  --glass-tint-bottom: light-dark(rgb(246 248 251 / 0.84), rgb(48 50 58 / 0.82));
   box-shadow: var(--menu-shadow), 0 0 0 0.5px var(--menu-border);
 }
 :root[data-glass] .glass.glass-sheet {
@@ -78,6 +81,15 @@
 }
 :root[data-glass] .glass.glass-quiet::before { opacity: 0.3; }
 :root[data-glass] .glass.glass-quiet::after { opacity: 0.55; }
+/* tab bars (navigator, inspector): a flat grey pill, like Xcode's */
+:root[data-glass] .glass.glass-tabs {
+  --glass-tint-top: light-dark(rgb(216 224 233 / 0.62), rgb(255 255 255 / 0.11));
+  --glass-tint-bottom: light-dark(rgb(208 217 228 / 0.56), rgb(255 255 255 / 0.08));
+  box-shadow: 0 0 0 0.5px light-dark(rgb(30 50 80 / 0.06), rgb(255 255 255 / 0.08)), inset 0 0.5px 1px light-dark(rgb(30 50 80 / 0.08), rgb(0 0 0 / 0.25));
+}
+:root[data-glass] .glass.glass-tabs::before { opacity: 0.35; }
+:root[data-glass] .glass.glass-tabs::after { opacity: 0.5; }
+:root[data-glass="off"] .glass.glass-tabs { background: var(--field); }
 /* text fields in a glass pill (filter bars): a grey inset, like Xcode's filter field */
 :root[data-glass] .glass.glass-field {
   --glass-tint-top: light-dark(rgb(232 235 239 / 0.78), rgb(255 255 255 / 0.1));
@@ -97,7 +109,7 @@
 /* rim light: 1px inner stroke, bright at the top left, dim at the bottom right, bright again at the far corner */
 .glass::after {
   content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; padding: 1px;
-  background: linear-gradient(135deg, var(--glass-rim-hi) 0%, var(--glass-rim-lo) 38%, var(--glass-rim-lo) 62%, var(--glass-rim-hi) 100%);
+  background: linear-gradient(160deg, var(--glass-rim-hi) 0%, var(--glass-rim-lo) 42%, var(--glass-rim-lo) 68%, color-mix(in srgb, var(--glass-rim-hi) 55%, transparent) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -120,7 +132,7 @@
 }
 .gbtn .ic { width: 17px; height: 17px; }
 .gbtn:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--glass-hover); }
-.gbtn:active:not(:disabled):not([aria-disabled="true"]) { background: var(--glass-press); }
+.gbtn:active:not(:disabled):not([aria-disabled="true"]) { background: var(--glass-press); transform: scale(0.96); }
 .gbtn:disabled, .gbtn[aria-disabled="true"] { color: var(--text-tertiary); }
 .gbtn[aria-pressed="true"], .gbtn[aria-expanded="true"] { background: var(--glass-on); }
 .gbtn.gbtn-solo { border-radius: 13px; width: 28px; height: 26px; }

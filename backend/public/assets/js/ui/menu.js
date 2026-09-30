@@ -47,6 +47,9 @@ export function openMenu({ items, anchor, point, align = "start", minWidth = 0, 
   root.className = `menu glass glass-menu glass-frosted ${className}`.trim();
   root.dataset.glassShape = "round";
   root.dataset.glassRadius = "12";
+  root.dataset.glassFrost = "14";
+  root.dataset.glassBand = "9";
+  root.dataset.glassChroma = "0.05";
   root.setAttribute("role", "menu");
   root.setAttribute("aria-label", label);
   root.tabIndex = -1;

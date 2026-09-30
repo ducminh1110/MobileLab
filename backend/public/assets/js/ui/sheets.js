@@ -64,11 +64,11 @@ function sheetHtml(sheet) {
   const size = def.size || "md";
   if (def.palette) {
     return html`<div class="scrim scrim-light" data-action="sheet-scrim" data-key="scrim"></div>
-      <div class="sheet sheet-${sheet.name} palette glass glass-sheet glass-frosted" data-glass-shape="round" data-glass-radius="14" role="dialog" aria-modal="true" aria-label="${def.title}" tabindex="-1" data-key="sheet-${sheet.name}">${def.render(sheet)}</div>`;
+      <div class="sheet sheet-${sheet.name} palette glass glass-sheet glass-frosted" data-glass-shape="round" data-glass-radius="14" data-glass-frost="16" data-glass-band="10" role="dialog" aria-modal="true" aria-label="${def.title}" tabindex="-1" data-key="sheet-${sheet.name}">${def.render(sheet)}</div>`;
   }
   return html`
     <div class="scrim" data-action="sheet-scrim" data-key="scrim"></div>
-    <div class="sheet sheet-${sheet.name} sheet-${size} glass glass-sheet glass-frosted" data-glass-shape="round" data-glass-radius="14" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1" data-key="sheet-${sheet.name}">
+    <div class="sheet sheet-${sheet.name} sheet-${size} glass glass-sheet glass-frosted" data-glass-shape="round" data-glass-radius="14" data-glass-frost="16" data-glass-band="10" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1" data-key="sheet-${sheet.name}">
       <header class="sheet-head">
         <h2 id="sheet-title">${typeof def.title === "function" ? def.title(sheet) : def.title}</h2>
         <button type="button" class="icon-btn icon-btn-sm sheet-x" data-action="sheet-close" aria-label="Close" title="Close (Esc)">${icon("xmark", "ic-14")}</button>

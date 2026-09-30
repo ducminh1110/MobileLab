@@ -28,7 +28,7 @@
   --capsule-shadow: 0 0.5px 3px light-dark(rgb(0 0 0 / 16%), rgb(0 0 0 / 50%));
   --folder: #5cb0f5;
   --field: light-dark(#efeff1, #333338);
-  --debug-bar: light-dark(#f2f2f4, #2c2c30);
+  --debug-bar: light-dark(#f6f6f7, #2c2c30);
   --console: light-dark(#eaf1e8, #1d2a22);
   --console-footer: light-dark(#dbe7d9, #17211b);
   --line-current: light-dark(#e5f7e8, #26372c);

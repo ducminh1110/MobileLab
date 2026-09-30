@@ -51,6 +51,9 @@
 
 /* comfortable touch targets */
 .app[data-layout="narrow"] .row { height: 34px; line-height: 34px; font-size: 14px; }
+.app[data-layout="narrow"] .row.gauge { height: 48px; line-height: 34px; }
+.app[data-layout="narrow"] .row.gauge .row-icon { margin-top: 9px; }
+.app[data-layout="narrow"] .row .spark { bottom: 6px; }
 .app[data-layout="narrow"] .row.var { height: 28px; line-height: 28px; font-size: 12.5px; }
 .app[data-layout="narrow"] .nf-field { height: 32px; }
 .app[data-layout="narrow"] .nav-filter { height: 48px; }
