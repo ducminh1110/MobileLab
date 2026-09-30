@@ -214,7 +214,6 @@ int LogView::lineAtY(int y) const {
 }
 
 void LogView::paintEvent(QPaintEvent *) {
-    if (Glass::suppressed() && false) return;
     const Tokens &t = tk();
     QPainter p(viewport());
     p.setRenderHint(QPainter::Antialiasing, false);

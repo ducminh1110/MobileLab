@@ -267,8 +267,10 @@ private slots:
         QCOMPARE(qAlpha(lit.pixel(50, 20)), 255);
         QCOMPARE(qAlpha(lit.pixel(0, 0)), 0);                          // outside the capsule
         QVERIFY(qAlpha(lit.pixel(0, 20)) < 255 && qAlpha(lit.pixel(0, 20)) > 0);   // anti-aliased edge
-        QVERIFY(qRed(lit.pixel(50, 2)) > qRed(dim.pixel(50, 2)));      // light brightens the bevel
-        QCOMPARE(qRed(lit.pixel(50, 20)), qRed(dim.pixel(50, 20)));    // and leaves the middle alone
+        const int edgeDelta = qRed(lit.pixel(50, 1)) - qRed(dim.pixel(50, 1));
+        const int midDelta = qRed(lit.pixel(50, 20)) - qRed(dim.pixel(50, 20));
+        QVERIFY(edgeDelta > 0);                                        // light brightens the bevel
+        QVERIFY2(midDelta >= 0 && midDelta * 2 < edgeDelta, "the middle only gets the faint broad lobe");
     }
 };
 

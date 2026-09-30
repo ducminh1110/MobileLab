@@ -18,7 +18,7 @@ This is a **Linux application/framework for Android testing**, not an Android AP
 - QEMU AArch64/x86_64 capability probing
 - Automatic KVM detection with degraded userspace fallback messaging
 - Resource-aware job scheduler with weighted execution costs
-- Local REST API on `127.0.0.1:4000`
+- Local REST API on `127.0.0.1:4100` (override with `MOBILELAB_ANDROID_API_PORT`)
 - Device, matrix, runtime, scheduler and console views
 - Runtime capability probing (host arch, KVM, QEMU, Android emulator, installed ABIs)
 - Device start/stop/restart and shell surfaces
@@ -77,27 +77,66 @@ GET  /scheduler/dry-run
 ```
 
 Device responses include `arch`, `backend`, `stability`, `tags`, and `health_score` so callers can distinguish x86_64-preferred targets from ARM64-fundamental targets and quickly filter weak or incompatible devices. The scheduler status and dry-run API expose priority-aware queue capacity before a run is submitted.
-Device responses include `arch`, `backend`, and `stability` so callers can distinguish x86_64-preferred targets from ARM64-fundamental targets.
+The port defaults to 4100 and is set with `MOBILELAB_ANDROID_API_PORT`.
 
 Example:
 
 ```bash
-curl http://127.0.0.1:4000/status
-curl http://127.0.0.1:4000/devices
-curl -X POST http://127.0.0.1:4000/runs
+curl http://127.0.0.1:4100/status
+curl http://127.0.0.1:4100/devices
+curl -X POST http://127.0.0.1:4100/runs
 ```
 
 ## Build
 
-Requires Qt 6 Widgets + Network and CMake 3.20+.
+Requires Qt 6 Widgets, Network, Svg and Test (developed against Qt 6.4.2; newer Qt 6 uses `QStyleHints::colorScheme` behind a version check) and CMake 3.20+. Build out of tree:
 
 ```bash
+sudo apt install qt6-base-dev qt6-svg-dev cmake g++
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 ./build/mobilelab-android
+ctest --test-dir build --output-on-failure
+cmake --install build --prefix /usr/local
 ```
 
-For ARM64 Linux hosts, build natively or cross-compile with a standard AArch64 C++ toolchain. For x86_64 Linux hosts, install x86_64 Android system images first and add ARM64 images only where compatibility testing is needed.
+For ARM64 Linux hosts build natively or with a standard AArch64 toolchain.
+
+## Look and feel
+
+The UI follows Xcode 26: navigator (six tabs), editor with jump bar, inspector, debug area, capsule status in the toolbar, and an own implementation of Liquid Glass (`src/ui/glass`, spec in `docs/design/liquid-glass.md`).
+
+- Fonts: Inter (UI) and JetBrains Mono (code), embedded via qrc from `shared/fonts`. No system or SF font is used as primary.
+- Theme follows the desktop colour scheme; override in Settings or with `MOBILELAB_THEME=light|dark`.
+- Glass levels: `MOBILELAB_GLASS=off|blur|full` (also in Settings). `off` is an opaque fill, `blur` is frosted tint without displacement, `full` adds refraction, chromatic offset and rim. Without a backdrop it falls back to tint plus rim. `MOBILELAB_REDUCE_TRANSPARENCY=1` forces off; `MOBILELAB_REDUCED_MOTION=1` disables animations.
+
+### Shortcuts
+
+| Keys | Action |
+|---|---|
+| Ctrl+0 | Toggle navigator |
+| Ctrl+Alt+0 | Toggle inspector |
+| Ctrl+Shift+Y | Toggle debug area |
+| Ctrl+1 .. Ctrl+6 | Devices, Tests, Issues, Find, Debug, Reports |
+| Ctrl+R / Ctrl+. | Run / Stop |
+| Ctrl+Shift+O | Open Quickly |
+| Ctrl+, | Settings |
+
+Dragging a pane handle past its minimum collapses it; double-click on a handle toggles it. Sizes, collapsed state and theme persist via QSettings.
+
+### Environment variables
+
+`MOBILELAB_ANDROID_API_PORT` (default 4100), `MOBILELAB_ANDROID_ARTIFACTS`, `MOBILELAB_ANDROID_CONFIG`, `MOBILELAB_SETTINGS_DIR`, `MOBILELAB_POLL_MS`, `MOBILELAB_BOOT_TIMEOUT_S`, `MOBILELAB_SCREENSHOT_DIR`, `MOBILELAB_SCREENSHOT_SIZE`.
+
+### Screenshot mode
+
+`MOBILELAB_SCREENSHOT_DIR=/some/dir MOBILELAB_SCREENSHOT_SIZE=1477x959 QT_QPA_PLATFORM=offscreen ./build/mobilelab-android` drives every navigator, editor and dialog, writes PNGs plus `manifest.txt` and `glass-stats.txt` (glass repaint times) and exits.
+
+## Tests and what is verified
+
+- Unit tests: glass maths (SDF, refraction table), log classifier, theme tokens (spec values, contrast, fonts), core, window behaviour (shortcuts, collapse, drag snap, persistence, Open Quickly), and a full matrix run against a fake SDK.
+- `tests/fixtures` holds a fake SDK (emulator, avdmanager, adb scripts and AVD files); the `mobilelab-screenshots` ctest runs the app against it offscreen, checks PNGs exist and are not blank, and runs the glass proof (`mobilelab-glass-proof`, capsule over a striped backdrop).
+- Not verified: a real Android SDK/emulator or Waydroid, real Wayland/X11 compositing of translucent popups, Qt newer than 6.4.2.
 
 ## VS Code workflow
 

@@ -153,7 +153,6 @@ QRectF TargetEditor::frameRect() const {
 }
 
 void TargetEditor::paintEvent(QPaintEvent *) {
-    if (Glass::suppressed() && false) return;
     const Tokens &t = tk();
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);

@@ -62,7 +62,6 @@ void Toolbar::relayout() {
 }
 
 void Toolbar::paintEvent(QPaintEvent *) {
-    if (Glass::suppressed() && false) return;
     if (!m_showTitle) return;
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);

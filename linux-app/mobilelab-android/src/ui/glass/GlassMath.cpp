@@ -118,8 +118,13 @@ ShapeTable::ShapeTable(int w, int h, float radius, const Params &p)
             t.rx = q16(rx); t.ry = q16(ry);
             t.cx = q16(cxo); t.cy = q16(cyo);
             t.edge = q8(edge);
-            m_max = std::max(m_max, mag);
-            m_reach = std::max(m_reach, mag + std::sqrt(cxo * cxo + cyo * cyo));
+            {
+                // track the maximum of what is actually stored (1/16 px steps)
+                const float qx = t.rx / 16.f, qy = t.ry / 16.f;
+                const float qmag = std::sqrt(qx * qx + qy * qy);
+                m_max = std::max(m_max, qmag);
+                m_reach = std::max(m_reach, qmag + std::sqrt(cxo * cxo + cyo * cyo));
+            }
             t.depth = q8(smooth(0.f, zR, inside));
             // ---- light layers ----
             const float fres = std::pow(1.f - std::fabs(Nz), 4.f) * p.fresnel;
@@ -328,8 +333,11 @@ QImage sampleThrough(const QImage &soft, const QImage *sharp, QPoint origin, con
         for (int x = 0; x < w; ++x) {
             const Texel &tx = t.at(x, y);
             const int bx = origin.x() + x, by = origin.y() + y;
+            const float gain = 1.f + 0.06f * (tx.depth / 255.f);   // slight brightening towards the middle, on every path
+            auto cl = [&](float v) { return quint32(std::min(255.f, v * gain + 0.5f)); };
             if (!o.displace || (tx.rx == 0 && tx.ry == 0 && tx.cx == 0 && tx.cy == 0)) {
-                dst[x] = G.at(bx, by) | 0xff000000u;
+                const quint32 c = G.at(bx, by);
+                dst[x] = 0xff000000u | (cl(float((c >> 16) & 255)) << 16) | (cl(float((c >> 8) & 255)) << 8) | cl(float(c & 255));
                 continue;
             }
             const float fx = bx + tx.rx / 16.f, fy = by + tx.ry / 16.f;
@@ -345,8 +353,6 @@ QImage sampleThrough(const QImage &soft, const QImage *sharp, QPoint origin, con
                 if (mixSharp) v = S.chan(sx, sy, shifts[c]) * (1.f - edgeMix) + v * edgeMix;
                 rgb[c] = v;
             }
-            const float gain = 1.f + 0.06f * (tx.depth / 255.f);
-            auto cl = [&](float v) { return quint32(std::min(255.f, v * gain + 0.5f)); };
             dst[x] = 0xff000000u | (cl(rgb[0]) << 16) | (cl(rgb[1]) << 8) | cl(rgb[2]);
         }
     }

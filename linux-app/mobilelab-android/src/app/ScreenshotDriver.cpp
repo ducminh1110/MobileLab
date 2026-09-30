@@ -55,14 +55,14 @@ void save(const QString &name, const QImage &img) {
 }
 
 QImage grabWindow(MainWindow *w) {
-    pump(120);
+    pump(360);   // let tab, panel and disclosure animations finish
     QImage img = w->grab().toImage();
     return img;
 }
 
 // Window grab with a popup window (menu, sheet) composited at its screen position.
 QImage grabWithPopup(MainWindow *w, QWidget *popup) {
-    pump(220);
+    pump(360);
     QImage base = w->grab().toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
     QImage pop(popup->size() * popup->devicePixelRatioF(), QImage::Format_ARGB32_Premultiplied);
     pop.setDevicePixelRatio(popup->devicePixelRatioF());

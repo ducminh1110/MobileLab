@@ -270,7 +270,6 @@ void DebugArea::syncFooter() {
 }
 
 void DebugArea::paintEvent(QPaintEvent *) {
-    if (Glass::suppressed() && false) return;
     const Tokens &t = tk();
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);

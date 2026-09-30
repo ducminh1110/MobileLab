@@ -17,7 +17,6 @@ Panel::Panel(Role r, QWidget *parent) : QWidget(parent), m_role(r) {
 QColor Panel::fillColor() const { return m_role == Role::Sidebar ? tk().sidebar : tk().editor; }
 
 void Panel::paintEvent(QPaintEvent *) {
-    if (Glass::suppressed() && false) return;
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
     const QRectF r = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
@@ -289,7 +288,6 @@ void PaneHost::layoutPanes() {
 }
 
 void PaneHost::paintEvent(QPaintEvent *) {
-    if (Glass::suppressed() && false) return;
     if (!m_floating) return;
     QPainter p(this);
     const Tokens &t = tk();

@@ -301,6 +301,7 @@ void Inspector::rebuildAttributes() {
     }
     v->addStretch();
     const int scroll = m_attr->verticalScrollBar()->value();
+    content->setAutoFillBackground(false);
     m_attr->setWidget(content);
     m_attr->verticalScrollBar()->setValue(scroll);
 }
@@ -355,6 +356,7 @@ void Inspector::rebuildHistory() {
         v->addWidget(row);
     }
     v->addStretch();
+    content->setAutoFillBackground(false);
     m_hist->setWidget(content);
 }
 
@@ -382,5 +384,7 @@ void Inspector::rebuildHelp() {
         blocks << QPair<QString, QString>{"MobileLab Android", "Select a virtual device, a run or a report to see its attributes, history and help. Ctrl+R runs the matrix on the destination shown in the toolbar capsule."};
         blocks << QPair<QString, QString>{"Layout", "Ctrl+0 hides the navigator, Ctrl+Alt+0 the inspector and Ctrl+Shift+Y the debug area. Drag a divider past its minimum to collapse it."};
     }
-    m_help->setWidget(paragraphPage(blocks, nullptr));
+    auto *page = paragraphPage(blocks, nullptr);
+    page->setAutoFillBackground(false);
+    m_help->setWidget(page);
 }

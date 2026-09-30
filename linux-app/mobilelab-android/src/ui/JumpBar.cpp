@@ -96,7 +96,6 @@ int JumpBar::crumbAt(const QPoint &p) const {
 }
 
 void JumpBar::paintEvent(QPaintEvent *) {
-    if (Glass::suppressed() && false) return;
     const Tokens &t = tk();
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);

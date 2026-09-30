@@ -5,6 +5,7 @@
 #              MOBILELAB_SHOTS_FULL=1 also renders 2000x1111.
 set -euo pipefail
 APP="${1:?app}"; CHECK="${2:?imagecheck}"; PROOF="${3:?glass proof}"
+export QT_QPA_PLATFORM=offscreen
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK="$(mktemp -d)"
 OUT="${MOBILELAB_SHOTS_OUT:-$WORK/shots}"

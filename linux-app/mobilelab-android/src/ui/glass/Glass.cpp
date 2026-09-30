@@ -77,10 +77,10 @@ Material Material::forKind(Kind k, const Tokens &t) {
     p.refraction = 0.42f;
     p.chroma = 0.04f;
     p.edgeHighlight = 0.30f;
-    p.specular = 0.40f;
+    p.specular = 0.28f;
     p.fresnel = 1.0f;
     p.zRadius = 14.f;
-    p.blur = 4.f;
+    p.blur = 6.f;
     p.edgeSharp = 0.65f;
     p.saturate = 1.5f;
     switch (k) {
@@ -124,11 +124,12 @@ Material Material::forKind(Kind k, const Tokens &t) {
     case Kind::Sheet: {
         m.tintTop = t.dark ? QColor(48, 48, 54, 226) : QColor(250, 250, 252, 222);
         m.tintBottom = t.dark ? QColor(34, 34, 40, 232) : QColor(244, 246, 250, 232);
-        p.refraction = 0.10f;
+        p.refraction = 0.06f;
         p.chroma = 0.f;
-        p.specular = 0.12f;
+        p.specular = 0.10f;
         p.zRadius = 18.f;
         p.blur = 9.f;
+        p.edgeSharp = 0.15f;
         m.opaque = t.dark ? QColor("#2c2c31") : QColor("#f7f7f9");
         break;
     }

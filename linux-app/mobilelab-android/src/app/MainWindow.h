@@ -108,6 +108,7 @@ private:
     int m_navId = -1, m_insId = -1, m_dbgId = -1;
     Toast *m_toast = nullptr;
     QWidget *m_lastSheet = nullptr;
+    QThread *m_probeThread = nullptr;
     QVector<Location> m_history;
     int m_hpos = -1;
     Location m_loc;

@@ -359,6 +359,7 @@ void RunEditor::rebuildSummary() {
     if (!r) {
         root->addWidget(new ThemedLabel("This run no longer exists.", 13, QFont::Normal, ThemedLabel::Role::Secondary, content));
         root->addStretch();
+        content->setAutoFillBackground(false);
         m_summaryScroll->setWidget(content);
         return;
     }
@@ -532,6 +533,7 @@ void RunEditor::rebuildSummary() {
     root->addWidget(actions);
     root->addStretch();
     const int scroll = m_summaryScroll->verticalScrollBar()->value();
+    content->setAutoFillBackground(false);
     m_summaryScroll->setWidget(content);
     m_summaryScroll->verticalScrollBar()->setValue(scroll);
 }

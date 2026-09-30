@@ -74,7 +74,8 @@ private:
         refresh();
         // waydroid commands can take a long time: keep them off the UI thread
         QThread *th = QThread::create([c = m_ctx.container, start] { if (start) c->start(); else c->stop(); });
-        connect(th, &QThread::finished, this, [this, th] { th->deleteLater(); m_busy = false; refresh(); });
+        m_thread = th;
+        connect(th, &QThread::finished, this, [this, th] { m_thread = nullptr; th->deleteLater(); m_busy = false; refresh(); });
         th->start();
     }
     AppContext m_ctx;
@@ -82,6 +83,9 @@ private:
     QWidget *m_content = nullptr;
     PillButton *m_start = nullptr, *m_stop = nullptr;
     bool m_busy = false;
+    QThread *m_thread = nullptr;
+public:
+    ~ContainerEditor() override { if (m_thread) m_thread->wait(5000); }
 };
 
 EditorArea::EditorArea(const AppContext &ctx, const Actions &a, QWidget *parent) : QWidget(parent), m_ctx(ctx) {

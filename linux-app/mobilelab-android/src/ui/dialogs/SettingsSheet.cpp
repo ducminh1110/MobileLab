@@ -172,6 +172,7 @@ QWidget *SettingsSheet::buildEnvironment() {
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->viewport()->setAutoFillBackground(false);
     scroll->setWidget(m_envHost);
+    m_envHost->setAutoFillBackground(false);
     scroll->setAccessibleName("Environment checks");
     v->addWidget(scroll, 1);
     auto *h = new QHBoxLayout;

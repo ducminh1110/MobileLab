@@ -112,7 +112,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // The container probe may run `waydroid status` (slow): off the UI thread.
     {
         QThread *th = QThread::create([c = m_ctx.container] { c->probe(); });
+        m_probeThread = th;
         connect(th, &QThread::finished, this, [this, th] {
+            m_probeThread = nullptr;
             th->deleteLater();
             m_ctx.containerProbed = true;
             m_ctx.containerViable = m_ctx.container->diagnostics().value("arm64").toObject().value("container_backend_viable").toBool();
@@ -127,7 +129,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     restoreUiState();
     updateActions();
     updateToggleText();
-    navigate(Location{}, false);
+    navigate(Location{}, true);   // the welcome page is the first history entry
     updateCapsule();
     m_tick.setParent(this);
     m_tick.setInterval(1000);
@@ -143,6 +145,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 }
 
 MainWindow::~MainWindow() {
+    if (m_probeThread) m_probeThread->wait(5000);   // never destroy a running QThread
     delete m_ctx.artifacts;
 }
 
