@@ -166,6 +166,11 @@ void PaneHost::setPaneSize(int id, int px) {
     layoutPanes();
 }
 
+void PaneHost::setCollapsedSize(int id, int px) {
+    m_panes[id].spec.collapsedSize = px;
+    layoutPanes();
+}
+
 int PaneHost::currentSize(int id) const {
     const auto &p = m_panes[id];
     return p.spec.collapsedSize + int(std::lround((p.size - p.spec.collapsedSize) * p.t));

@@ -6,7 +6,9 @@
 #include <QPainter>
 #include <QRadioButton>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QStackedWidget>
+#include <memory>
 #include "AndroidContainerRuntime.h"
 #include "AndroidEmulator.h"
 #include "AndroidRuntime.h"
@@ -66,13 +68,15 @@ private:
     QString m_title, m_detail, m_remedy;
 };
 
-QWidget *labeled(const QString &label, QWidget *field, QWidget *parent) {
+// `tall` fields (swatches, segmented control) are taller than a line of text: their label sits on the field's middle.
+QWidget *labeled(const QString &label, QWidget *field, QWidget *parent, bool tall = false) {
     auto *w = new QWidget(parent);
     auto *h = new QHBoxLayout(w);
     h->setContentsMargins(0, 2, 0, 2);
     auto *l = new ThemedLabel(label, 13, QFont::Normal, ThemedLabel::Role::Secondary, w);
-    l->setFixedWidth(120);
-    l->setAlignment(Qt::AlignRight | Qt::AlignTop);
+    l->setFixedWidth(Theme::scaled(120));
+    QObject::connect(&Theme::instance(), &Theme::textScaleChanged, l, [l] { l->setFixedWidth(Theme::scaled(120)); });
+    l->setAlignment(Qt::AlignRight | (tall ? Qt::AlignVCenter : Qt::AlignTop));
     h->addWidget(l);
     h->addWidget(field, 1);
     return w;
@@ -87,7 +91,7 @@ SettingsSheet::SettingsSheet(const AppContext &ctx, QWidget *parent) : SheetDial
     tabRow->addStretch();
     body()->addLayout(tabRow);
     m_stack = new QStackedWidget(this);
-    m_stack->addWidget(buildGeneral());
+    m_stack->addWidget(scrolling(buildGeneral(), this));
     m_stack->addWidget(buildEnvironment());
     m_stack->addWidget(buildStorage());
     body()->addWidget(m_stack, 1);
@@ -116,7 +120,9 @@ QWidget *SettingsSheet::buildGeneral() {
     auto *v = new QVBoxLayout(page);
     v->setContentsMargins(4, 10, 4, 0);
     v->setSpacing(6);
-    auto radios = [&](const QStringList &names, int current, std::function<void(int)> apply, const QString &group) {
+    // Controls that mirror a setting; they are brought back in line whenever the setting changes elsewhere (Reset).
+    auto sync = std::make_shared<QVector<std::function<void()>>>();
+    auto radios = [&](const QStringList &names, std::function<int()> current, std::function<void(int)> apply, const QString &group) {
         auto *w = new QWidget(page);
         auto *l = new QVBoxLayout(w);
         l->setContentsMargins(0, 0, 0, 0);
@@ -124,19 +130,39 @@ QWidget *SettingsSheet::buildGeneral() {
         auto *bg = new QButtonGroup(w);
         for (int i = 0; i < names.size(); ++i) {
             auto *r = new QRadioButton(names[i], w);
-            r->setFont(Theme::instance().ui(13));
-            r->setChecked(i == current);
+            Ui::bindFont(r, 13);
+            r->setChecked(i == current());
             r->setAccessibleName(group + " " + names[i]);
             bg->addButton(r, i);
             l->addWidget(r);
         }
         connect(bg, &QButtonGroup::idClicked, this, apply);
+        sync->push_back([bg, current] { if (auto *b = bg->button(current())) b->setChecked(true); });
         return w;
     };
-    const int mode = int(Theme::instance().mode());
-    v->addWidget(labeled("Appearance", radios({"System", "Light", "Dark"}, mode, [](int i) { Theme::instance().setMode(Theme::Mode(i)); }, "Appearance"), page));
-    const int lvl = int(Glass::level());
-    auto *glassBox = radios({"Off (opaque controls)", "Blur (frosted, no refraction)", "Full (refracting Liquid Glass)"}, lvl, [](int i) { Glass::Settings::instance().setLevel(Glass::Level(i)); }, "Liquid Glass");
+    v->addWidget(labeled("Appearance", radios({"System", "Light", "Dark"}, [] { return int(Theme::instance().mode()); }, [](int i) { Theme::instance().setMode(Theme::Mode(i)); }, "Appearance"), page));
+    QStringList accents;
+    for (int i = 0; i < Theme::accentCount; ++i) accents << Theme::accentName(Theme::Accent(i));
+    auto *swatches = new SwatchRow(accents, [](int i) { return Theme::accentColor(Theme::Accent(i), tk().dark); }, "Accent color", page);
+    swatches->setCurrent(int(Theme::instance().accent()));
+    connect(swatches, &SwatchRow::currentChanged, this, [](int i) { Theme::instance().setAccent(Theme::Accent(i)); });
+    sync->push_back([swatches] { swatches->setCurrent(int(Theme::instance().accent())); });
+    v->addWidget(labeled("Accent color", swatches, page, true));
+    QStringList sizes;
+    for (int i = 0; i < Theme::textSizeCount; ++i) sizes << Theme::textSizeName(Theme::TextSize(i));
+    auto *sizeRow = new QWidget(page);
+    auto *sh = new QHBoxLayout(sizeRow);
+    sh->setContentsMargins(0, 0, 0, 0);
+    auto *textSize = new SegmentedControl(sizes, sizeRow);
+    textSize->setAccessibleName("Text size");
+    textSize->setCurrent(int(Theme::instance().textSize()));
+    connect(textSize, &SegmentedControl::currentChanged, this, [](int i) { Theme::instance().setTextSize(Theme::TextSize(i)); });
+    sync->push_back([textSize] { textSize->setCurrent(int(Theme::instance().textSize())); });
+    sh->addWidget(textSize);
+    sh->addStretch();
+    v->addWidget(labeled("Text size", sizeRow, page, true));
+    auto *glassBox = radios({"Off (opaque controls)", "Blur (frosted, no refraction)", "Full (refracting Liquid Glass)"}, [] { return int(Glass::level()); },
+                            [](int i) { Glass::Settings::instance().setLevel(Glass::Level(i)); }, "Liquid Glass");
     auto *glassWrap = new QWidget(page);
     auto *gv = new QVBoxLayout(glassWrap);
     gv->setContentsMargins(0, 0, 0, 0);
@@ -149,10 +175,27 @@ QWidget *SettingsSheet::buildGeneral() {
     }
     v->addWidget(labeled("Liquid Glass", glassWrap, page));
     auto *motion = new QCheckBox("Reduce motion", page);
-    motion->setFont(Theme::instance().ui(13));
+    Ui::bindFont(motion, 13);
     motion->setChecked(Theme::instance().reducedMotion());
     connect(motion, &QCheckBox::toggled, this, [](bool on) { Theme::instance().setReducedMotion(on); });
+    sync->push_back([motion] { QSignalBlocker b(motion); motion->setChecked(Theme::instance().reducedMotion()); });
     v->addWidget(labeled("Motion", motion, page));
+    auto *reset = new PillButton("Reset Appearance", PillButton::Style::Secondary, page);
+    reset->setAccessibleDescription("Restores the theme, accent color, text size, motion and Liquid Glass settings to their defaults");
+    connect(reset, &QAbstractButton::clicked, this, [] {
+        Theme::instance().resetAppearance();
+        Glass::Settings::instance().setLevel(Glass::Level::Full);
+    });
+    auto *resetRow = new QWidget(page);
+    auto *rh = new QHBoxLayout(resetRow);
+    rh->setContentsMargins(0, 2, 0, 0);
+    rh->addWidget(reset);
+    rh->addStretch();
+    v->addWidget(labeled({}, resetRow, page));
+    auto syncAll = [sync] { for (const auto &f : *sync) f(); };
+    connect(&Theme::instance(), &Theme::changed, page, syncAll);
+    connect(&Theme::instance(), &Theme::motionChanged, page, syncAll);
+    connect(&Glass::Settings::instance(), &Glass::Settings::levelChanged, page, syncAll);
     auto *api = new ThemedLabel(m_ctx.api && m_ctx.api->isListening() ? QString("http://127.0.0.1:%1").arg(m_ctx.api->port()) : QString("Not listening: %1").arg(m_ctx.apiError), 12, QFont::Normal, ThemedLabel::Role::Text, page, true);
     v->addWidget(labeled("REST API", api, page));
     auto *hint = new ThemedLabel("Set MOBILELAB_ANDROID_API_PORT to change the port (default 4100; 4000 is used by the Node backend). It takes effect at the next start.", 11, QFont::Normal, ThemedLabel::Role::Tertiary, page);

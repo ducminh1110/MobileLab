@@ -21,8 +21,9 @@ public:
         setCursor(Qt::PointingHandCursor);
         setFocusPolicy(Qt::NoFocus);
         setAccessibleName("Jump to end");
+        connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { updateGeometry(); });
     }
-    QSize sizeHint() const override { return QSize(116 + 2 * shadowMargin(), 28 + 2 * shadowMargin()); }
+    QSize sizeHint() const override { return QSize(Theme::scaled(116) + 2 * shadowMargin(), Theme::scaled(28) + 2 * shadowMargin()); }
     std::function<void()> onClick;
     void paintContent(QPainter &p, const QRect &shape) override {
         Icons::paint(&p, "chevron.down", QRectF(shape.left() + 12, shape.center().y() - 6, 12, 12), tk().text);
@@ -58,13 +59,27 @@ LogView::LogView(Mode mode, QWidget *parent) : QAbstractScrollArea(parent), m_mo
     });
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this, [this] { viewport()->update(); });
     connect(&Theme::instance(), &Theme::changed, this, [this] { m_cache.clear(); viewport()->update(); });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] {
+        verticalScrollBar()->setSingleStep(rowHeight() * 3);
+        updateRange();
+        placePill();
+    });
     m_pill = new JumpPill(this);
     static_cast<JumpPill *>(m_pill)->onClick = [this] { setFollow(true); };
     m_pill->hide();
 }
 
-int LogView::rowHeight() const { return Metrics::gutterRow; }
+int LogView::rowHeight() const { return Metrics::gutterRow(); }
 int LogView::charWidth() const { return QFontMetrics(Theme::instance().mono(12)).horizontalAdvance('0'); }
+
+// Text runs sit on a whole-pixel grid of charWidth(). A scaled size has a fractional advance, so its letters drift
+// out of the run and get clipped; the spacing that makes the advance whole fixes that. The default size is untouched.
+QFont LogView::monoFont(QFont::Weight w) const {
+    QFont f = Theme::instance().mono(12, w);
+    if (Theme::instance().textSize() != Theme::TextSize::Default)
+        f.setLetterSpacing(QFont::AbsoluteSpacing, charWidth() - QFontMetricsF(f).horizontalAdvance(QLatin1Char('0')));
+    return f;
+}
 
 int LogView::gutterWidth() const {
     if (m_mode == Mode::Console) return 0;
@@ -223,7 +238,7 @@ void LogView::paintEvent(QPaintEvent *) {
     const int scrollY = verticalScrollBar()->value(), scrollX = horizontalScrollBar()->value();
     const bool console = m_mode == Mode::Console;
     if (!console) p.fillRect(QRect(0, 0, gw, H), t.gutter);
-    const QFont mono = Theme::instance().mono(12), monoMed = Theme::instance().mono(12, QFont::Medium);
+    const QFont mono = monoFont(QFont::Normal), monoMed = monoFont(QFont::Medium);
     const int n = m_filter ? m_visible.size() : m_lines.size();
     if (n == 0 && !m_emptyText.isEmpty()) {
         p.setFont(Theme::instance().ui(12));
@@ -299,7 +314,7 @@ void LogView::paintEvent(QPaintEvent *) {
         p.drawText(QRect(0, y, numRight + 2, rh), Qt::AlignVCenter | Qt::AlignRight, num);
         if (li.kind == LogSyntax::Kind::CasePass || li.kind == LogSyntax::Kind::CaseFail) {
             p.setRenderHint(QPainter::Antialiasing, true);
-            Icons::paint(&p, li.kind == LogSyntax::Kind::CasePass ? "checkmark.diamond.fill" : "xmark.diamond.fill", QRectF(6, y + 2, 13, 13),
+            Icons::paint(&p, li.kind == LogSyntax::Kind::CasePass ? "checkmark.diamond.fill" : "xmark.diamond.fill", QRectF(6, y + (rh - 13) / 2, 13, 13),
                          li.kind == LogSyntax::Kind::CasePass ? t.pass : t.fail);
             p.setRenderHint(QPainter::Antialiasing, false);
         }
@@ -322,7 +337,7 @@ void LogView::paintEvent(QPaintEvent *) {
             p.drawRoundedRect(pr.adjusted(-3, 0, 3, 0), 8, 8);
             p.setBrush(Ui::withAlpha(t.fail, t.dark ? 70 : 46));
             p.drawRoundedRect(pr, 8, 8);
-            Icons::paint(&p, "xmark.diamond.fill", QRectF(pr.left() + 6, y + 3, 11, 11), t.fail);
+            Icons::paint(&p, "xmark.diamond.fill", QRectF(pr.left() + 6, y + (rh - 11) / 2, 11, 11), t.fail);
             p.setFont(f);
             p.setPen(t.dark ? QColor("#ffb4ae") : QColor("#a3140b"));
             p.drawText(QRectF(pr.left() + 21, y, pr.width() - 24, rh), Qt::AlignVCenter | Qt::AlignLeft, msg);

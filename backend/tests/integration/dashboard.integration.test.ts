@@ -141,6 +141,73 @@ test("Settings offers Liquid Glass On / Reduced and it is a persisted preference
   assert.match(state, /glass: "on"/);
 });
 
+test("Settings offers every accent and text size from the shared tables, and tokens.css defines each accent", async () => {
+  const appearance = (await import(pathToFileURL(path.join(PUBLIC, "assets/js/core/appearance.js")).href)) as unknown as {
+    ACCENTS: { id: string; label: string; light: string; dark: string }[];
+    TEXT_SIZES: { id: string }[];
+  };
+  const sheets = read(path.join(PUBLIC, "assets/js/ui/sheets.js"));
+  const tokens = stripComments(read(path.join(PUBLIC, "assets/css/tokens.css")));
+
+  // the sheet renders its swatches and sizes from the tables, as radio groups with accessible names
+  assert.match(sheets, /ACCENTS\.map\(\(a\) => html`<button type="button" role="radio" class="swatch" data-accent="\$\{a\.id\}" aria-checked=[^>]*aria-label="\$\{a\.label\}"[^>]*data-action="accent"/);
+  assert.match(sheets, /role="radiogroup" aria-label="Accent Color"/);
+  assert.match(sheets, /TEXT_SIZES\.map\(\(t\) => html`<button type="button" role="radio" aria-checked=[^>]*data-action="text-size"/);
+  assert.match(sheets, /role="radiogroup" aria-label="Text Size"/);
+  for (const name of ["accent", "text-size", "reduce-motion", "reset-appearance"]) {
+    assert.match(sheets, new RegExp(`data-action="${name}"`), `${name} is in the markup`);
+    assert.match(sheets, new RegExp(`action\\("${name}"`), `${name} has a handler`);
+  }
+  assert.match(sheets, /<input type="checkbox" data-action="reduce-motion"[^>]*> Reduce motion/);
+
+  // the stylesheet defines every accent the sheet offers, with the values of the table, and Blue is the default
+  assert.match(tokens, /--accent:\s*var\(--accent-blue\);/);
+  for (const a of appearance.ACCENTS) {
+    assert.match(tokens, new RegExp(`--accent-${a.id}:\\s*light-dark\\(${a.light},\\s*${a.dark}\\);`), `--accent-${a.id} matches the table`);
+    assert.match(tokens, new RegExp(`\\[data-accent="${a.id}"\\]\\s*\\{\\s*--accent:\\s*var\\(--accent-${a.id}\\);\\s*\\}`), `[data-accent="${a.id}"] selects it`);
+  }
+  assert.equal([...tokens.matchAll(/--accent-(?!text)[a-z]+:/g)].length, appearance.ACCENTS.length, "no accent in the stylesheet that the sheet does not offer");
+  assert.equal([...tokens.matchAll(/\[data-accent="[a-z]+"\]/g)].length, appearance.ACCENTS.length);
+
+  // the accent family is the only place the accent colours are written down
+  const values = appearance.ACCENTS.flatMap((a) => [a.light, a.dark]);
+  for (const f of source(".css")) {
+    if (f.endsWith("tokens.css")) continue;
+    const css = stripComments(read(f)).toLowerCase();
+    for (const v of values) assert.ok(!css.includes(v), `${rel(f)} hard-codes the accent colour ${v}`);
+  }
+  assert.ok(appearance.TEXT_SIZES.length >= 4);
+});
+
+test("text size: every font size scales with --ts, and rows that hold text are rounded to whole pixels", () => {
+  const tokens = stripComments(read(path.join(PUBLIC, "assets/css/tokens.css")));
+  assert.match(tokens, /--ts:\s*1;/, "Default is a scale of exactly 1");
+  assert.match(tokens, /--row-h:\s*round\(22px \* var\(--ts\), 1px\);/);
+  assert.match(tokens, /--log-row:\s*round\(17px \* var\(--ts\), 1px\);/);
+  for (const f of source(".css")) {
+    const css = stripComments(read(f));
+    for (const m of css.matchAll(/(?:^|[;{\s])font-size:\s*([^;}]+)/g)) {
+      assert.match(m[1].trim(), /^(calc\(\d+(?:\.\d+)?px \* var\(--ts\)\)|inherit)$/, `${rel(f)} has a font size that ignores the text size: ${m[1].trim()}`);
+    }
+    for (const m of css.matchAll(/line-height:\s*(\d+(?:\.\d+)?px)/g)) assert.fail(`${rel(f)} has a fixed line height ${m[1]}`);
+  }
+});
+
+test("reduce motion is one switch on <html data-motion>, written before the first paint and kept current by the shell", () => {
+  const html = read(path.join(PUBLIC, "index.html"));
+  const early = html.indexOf('src="assets/js/early.js"');
+  assert.ok(early > 0 && early < html.indexOf('src="assets/js/main.js"'), "early.js is loaded before main.js");
+  assert.match(html, /<script type="module" src="assets\/js\/early\.js" blocking="render"><\/script>/, "render blocking, so there is no flash of the default accent");
+  assert.match(read(path.join(PUBLIC, "assets/js/early.js")), /applyAppearance\(document\.documentElement, prefs/);
+  const base = stripComments(read(path.join(PUBLIC, "assets/css/base.css")));
+  assert.match(base, /:root\[data-motion="reduce"\] \*,[^{]*\{\s*animation: none !important; transition: none !important;/);
+  assert.match(base, /:root\[data-motion="reduce"\] \.spin \{ animation: spin 2\.4s linear infinite !important; \}/, "the spinner keeps turning, slowly");
+  for (const f of source(".css")) assert.doesNotMatch(stripComments(read(f)), /prefers-reduced-motion/, `${rel(f)} reads the OS setting directly; it must go through data-motion`);
+  const shell = read(path.join(PUBLIC, "assets/js/ui/shell.js"));
+  assert.match(shell, /prefers-reduced-motion: reduce/);
+  assert.match(shell, /if \(prefs\.reduceMotion === null\)/, "the OS setting is followed only while there is no override");
+});
+
 // ---------------------------------------------------------------------------------------------- the maths
 
 interface Glass {

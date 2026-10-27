@@ -104,6 +104,8 @@ void ScreenshotDriver::step() {
     g_manifest << QString("size %1x%2").arg(w->width()).arg(w->height());
     g_manifest << QString("theme %1").arg(Theme::instance().dark() ? "dark" : "light");
     g_manifest << QString("glass %1").arg(Glass::levelName(Glass::level()));
+    g_manifest << QString("accent %1").arg(Theme::accentKey(Theme::instance().accent()));
+    g_manifest << QString("text-size %1").arg(Theme::textSizeKey(Theme::instance().textSize()));
     g_manifest << QString("ui-font %1 (asked Inter) mono-font %2 (asked JetBrains Mono)").arg(QFontInfo(Theme::instance().ui(13)).family(), QFontInfo(Theme::instance().mono(12)).family());
     g_manifest << QString("targets %1").arg(ctx.runtime->targets().size());
     g_manifest << QString("api-port %1").arg(ctx.api ? int(ctx.api->port()) : 0);
@@ -308,7 +310,47 @@ void ScreenshotDriver::step() {
         }
     }
 
-    // 10: glass measurements: a resize storm forces every glass widget to re-sample its backdrop
+    // 10: appearance changes at run time, no restart and no reload: the largest text size with a non-default
+    // accent, then the smallest with another one. Welcome and a report show the toolbar, navigator and editor.
+    {
+        Theme &th = Theme::instance();
+        const Theme::Accent accent0 = th.accent();
+        const Theme::TextSize size0 = th.textSize();
+        auto report = [&](const QString &tab) {
+            if (runId.isEmpty()) return;
+            Location rl;
+            rl.kind = Location::Run;
+            rl.id = runId;
+            rl.tab = tab;
+            w->navigate(rl);
+        };
+        th.setAccent(Theme::Accent::Purple);
+        th.setTextSize(Theme::TextSize::Larger);
+        g_manifest << "live-appearance larger purple";
+        w->selectNavigator(Navigator::Devices, false);
+        w->navigate(Location{}, false);
+        save("25-welcome-larger-purple", grabWindow(w));
+        report("summary");
+        save("26-report-larger-purple", grabWindow(w));
+        w->showDebugArea(true, false);
+        w->navigate(tl);
+        save("27-debug-area-larger-purple", grabWindow(w));
+        w->showDebugArea(false, false);
+        w->openSettings(SettingsSheet::General);
+        if (auto *sheet = w->lastSheet()) { save("28-settings-larger-purple", grabWithPopup(w, sheet)); delete sheet; }
+        th.setAccent(Theme::Accent::Orange);
+        th.setTextSize(Theme::TextSize::Small);
+        g_manifest << "live-appearance small orange";
+        w->navigate(Location{}, false);
+        save("29-welcome-small-orange", grabWindow(w));
+        report("summary");
+        save("30-report-small-orange", grabWindow(w));
+        th.setAccent(accent0);
+        th.setTextSize(size0);
+        w->navigate(Location{}, false);
+    }
+
+    // 11: glass measurements: a resize storm forces every glass widget to re-sample its backdrop
     {
         Glass::resetStats();
         const QSize base = w->size();

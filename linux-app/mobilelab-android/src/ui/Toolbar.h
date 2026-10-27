@@ -15,7 +15,7 @@ public:
     GlassGroup *leftGroup() const { return m_nav; }
     GlassGroup *runGroup() const { return m_run; }
     GlassGroup *rightGroup() const { return m_right; }
-    QSize sizeHint() const override { return QSize(1000, Metrics::toolbarHeight); }
+    QSize sizeHint() const override { return QSize(1000, Metrics::toolbarHeight()); }
 protected:
     void resizeEvent(QResizeEvent *) override { relayout(); }
     void paintEvent(QPaintEvent *) override;

@@ -19,7 +19,7 @@ public:
     JumpBar(QAction *back, QAction *forward, QAction *related, QAction *options, QAction *add, QWidget *parent = nullptr);
     void setCrumbs(const QVector<Crumb> &c);
     const QVector<Crumb> &crumbs() const { return m_crumbs; }
-    QSize sizeHint() const override { return QSize(400, Metrics::jumpBarHeight); }
+    QSize sizeHint() const override { return QSize(400, Metrics::jumpBarHeight()); }
     GlassGroup *navGroup() const { return m_nav; }
     GlassGroup *trailing() const { return m_trail; }
     IconButton *gridButton() const { return m_grid; }

@@ -30,7 +30,7 @@ bool NavFilterProxy::filterAcceptsRow(int row, const QModelIndex &parent) const 
 
 // --- NavDelegate --------------------------------------------------------------------------------------
 
-QSize NavDelegate::sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const { return QSize(100, m_tree->compact() ? 20 : Metrics::navRow); }
+QSize NavDelegate::sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const { return QSize(100, m_tree->compact() ? Theme::scaled(20) : Metrics::navRow()); }
 
 void NavDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &idx) const {
     const Tokens &t = tk();
@@ -49,7 +49,8 @@ void NavDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QMod
     const QString square = idx.data(NavRole::Square).toString();
     if (!square.isEmpty()) {
         const QColor sc = idx.data(NavRole::SquareColor).value<QColor>();
-        const QRectF sq(x + 1, r.center().y() - 7, 14, 14);
+        const int sqs = Theme::scaled(14);
+        const QRectF sq(x + 1, r.center().y() - sqs / 2, sqs, sqs);
         p->setPen(Qt::NoPen);
         p->setBrush(sc.isValid() ? sc : t.textTertiary);
         p->drawRoundedRect(sq, 3.5, 3.5);
@@ -92,18 +93,18 @@ void NavDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QMod
     if (!badge.isEmpty()) {
         p->setFont(Theme::instance().ui(10, QFont::DemiBold));
         const int w = QFontMetrics(p->font()).horizontalAdvance(badge) + 10;
-        const QRect br(rx - w, r.center().y() - 7, w, 14);
+        const int bh = Theme::scaled(14);
+        const QRect br(rx - w, r.center().y() - bh / 2, w, bh);
         p->setPen(Qt::NoPen);
         p->setBrush(onAccent ? Ui::withAlpha(t.accentText, 50) : Ui::withAlpha(t.text, 22));
-        p->drawRoundedRect(br, 7, 7);
+        p->drawRoundedRect(br, bh / 2.0, bh / 2.0);
         p->setPen(fg2);
         p->drawText(br, Qt::AlignCenter, badge);
         rx -= w + 6;
     }
     // title + sub
     const bool bold = idx.data(NavRole::Bold).toBool();
-    QFont f = m_tree->compact() ? Theme::instance().mono(11.5, bold ? QFont::Medium : QFont::Normal) : Theme::instance().ui(13, bold ? QFont::DemiBold : QFont::Normal);
-    if (m_tree->compact()) f.setPixelSize(12);
+    const QFont f = m_tree->compact() ? Theme::instance().mono(12, bold ? QFont::Medium : QFont::Normal) : Theme::instance().ui(13, bold ? QFont::DemiBold : QFont::Normal);
     p->setFont(f);
     const QString title = idx.data(Qt::DisplayRole).toString();
     const QString sub = idx.data(NavRole::Sub).toString();
@@ -115,10 +116,10 @@ void NavDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QMod
     if (!q.isEmpty()) {
         const int at = shown.indexOf(q, 0, Qt::CaseInsensitive);
         if (at >= 0) {
-            const int hx = x + fm.horizontalAdvance(shown.left(at));
+            const int hx = x + fm.horizontalAdvance(shown.left(at)), hh = Theme::scaled(18);
             p->setPen(Qt::NoPen);
             p->setBrush(Ui::withAlpha(t.warn, onAccent ? 110 : 90));
-            p->drawRoundedRect(QRectF(hx - 1, r.center().y() - 9, fm.horizontalAdvance(shown.mid(at, q.size())) + 2, 18), 3, 3);
+            p->drawRoundedRect(QRectF(hx - 1, r.center().y() - hh / 2, fm.horizontalAdvance(shown.mid(at, q.size())) + 2, hh), 3, 3);
         }
     }
     p->setPen(fg);
@@ -173,6 +174,7 @@ NavTree::NavTree(QWidget *parent) : QTreeView(parent) {
         viewport()->update();
     });
     connect(&Theme::instance(), &Theme::changed, this, [this] { viewport()->update(); });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { doItemsLayout(); });
     connect(&Theme::instance(), &Theme::motionChanged, this, &NavTree::updateSpin);
     connect(this, &QTreeView::expanded, this, [this](const QModelIndex &i) {
         if (!m_silent) { const QString id = i.data(NavRole::Id).toString(); m_userExpanded.insert(id); m_userCollapsed.remove(id); }
@@ -459,7 +461,7 @@ void NavTree::paintEvent(QPaintEvent *e) {
         p.setRenderHint(QPainter::Antialiasing);
         p.setPen(Qt::NoPen);
         p.setBrush(Ui::withAlpha(tk().text, 14));
-        for (int i = 0; i < 3; ++i) p.drawRoundedRect(QRectF(16 + (i % 2) * 14, 6 + i * Metrics::navRow + 4, 120 + (i * 37) % 60, 10), 5, 5);
+        for (int i = 0; i < 3; ++i) p.drawRoundedRect(QRectF(16 + (i % 2) * 14, 6 + i * Metrics::navRow() + 4, 120 + (i * 37) % 60, 10), 5, 5);
     }
 }
 
@@ -585,11 +587,12 @@ void NavTabBar::paintContent(QPainter &p, const QRect &shape) {
         const QRect b = m_buttons[it.key()]->geometry();
         const QString txt = it.value().first > 99 ? "99+" : QString::number(it.value().first);
         p.setFont(Theme::instance().ui(9, QFont::Bold));
-        const int w = qMax(13, QFontMetrics(p.font()).horizontalAdvance(txt) + 7);
-        const QRect br(b.right() - w + 4, b.top() - 2, w, 13);
+        const int bh = Theme::scaled(13);
+        const int w = qMax(bh, QFontMetrics(p.font()).horizontalAdvance(txt) + 7);
+        const QRect br(b.right() - w + 4, b.top() - 2, w, bh);
         p.setPen(Qt::NoPen);
         p.setBrush(it.value().second);
-        p.drawRoundedRect(br, 6.5, 6.5);
+        p.drawRoundedRect(br, bh / 2.0, bh / 2.0);
         p.setPen(Qt::white);
         p.drawText(br, Qt::AlignCenter, txt);
     }

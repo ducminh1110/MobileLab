@@ -1,5 +1,7 @@
 #include <QApplication>
 #include <QDir>
+#include <QMenu>
+#include <QMenuBar>
 #include <QSettings>
 #include <QStyleHints>
 #include "MainWindow.h"
@@ -35,6 +37,12 @@ int main(int argc, char *argv[]) {
     QObject::connect(&theme, &Theme::changed, &app, [&app, &theme] {
         app.setPalette(theme.palette());
         Icons::clearCache();
+    });
+    // Widgets without a font of their own follow the application font; menus carry one (see XcodeStyle::polish).
+    QObject::connect(&theme, &Theme::textScaleChanged, &app, [&app, &theme] {
+        app.setFont(theme.ui(13));
+        for (QWidget *w : QApplication::allWidgets())
+            if (qobject_cast<QMenuBar *>(w) || qobject_cast<QMenu *>(w)) w->setFont(theme.ui(13));
     });
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     QObject::connect(app.styleHints(), &QStyleHints::colorSchemeChanged, &theme, [&theme](Qt::ColorScheme) { theme.setSystemDark(Theme::detectSystemDark()); });

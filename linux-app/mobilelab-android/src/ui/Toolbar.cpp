@@ -5,7 +5,7 @@
 #include "glass/Glass.h"
 
 Toolbar::Toolbar(const Actions &a, QWidget *parent) : QWidget(parent) {
-    setFixedHeight(Metrics::toolbarHeight);
+    setFixedHeight(Metrics::toolbarHeight());
     setAttribute(Qt::WA_NoSystemBackground, true);
     setAccessibleName("Toolbar");
     m_nav = new GlassGroup(this);
@@ -29,6 +29,10 @@ Toolbar::Toolbar(const Actions &a, QWidget *parent) : QWidget(parent) {
     setTabOrder(m_capsule, m_right->buttons()[0]);
     setTabOrder(m_right->buttons()[0], m_right->buttons()[1]);
     connect(&Theme::instance(), &Theme::changed, this, [this] { update(); });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] {
+        setFixedHeight(Metrics::toolbarHeight());
+        relayout();
+    });
 }
 
 void Toolbar::relayout() {
@@ -50,11 +54,11 @@ void Toolbar::relayout() {
     const QFont f = Theme::instance().ui(13, QFont::Bold);
     const int titleW = 20 + QFontMetrics(f).horizontalAdvance("MobileLab") + 8;
     // capsule: centred in the window, limited by both sides
-    int capW = qBound(340, int(width() * 0.40), 620);
+    int capW = qBound(Theme::scaled(340), int(width() * 0.40), Theme::scaled(620));
     int capX = (width() - capW) / 2;
     m_showTitle = capX - leftEnd >= titleW + 10;
     if (!m_showTitle && capX < leftEnd) capX = leftEnd;
-    if (capX + capW > rightStart - 10) capW = qMax(240, rightStart - 10 - capX);
+    if (capX + capW > rightStart - 10) capW = qMax(Theme::scaled(240), rightStart - 10 - capX);
     const QSize cs = m_capsule->sizeHint();
     m_capsule->setGeometry(capX - 3, (H - cs.height()) / 2, capW + 6, cs.height());
     m_titleRect = QRect(leftEnd, 0, titleW, H);

@@ -54,7 +54,7 @@ public:
         int minSize = 200;
         int maxSize = 600;
         int defaultSize = 300;
-        int collapsedSize = 0;   // size while collapsed (the debug area keeps its 28px bar)
+        int collapsedSize = 0;   // size while collapsed (the debug area keeps its bar, 28px at the default text size)
         int snap = 56;           // dragging this far below minSize snaps the pane closed
         QString name;
     };
@@ -73,6 +73,7 @@ public:
     void toggle(int id) { setShown(id, !isShown(id)); }
     int paneSize(int id) const { return m_panes[id].size; }
     void setPaneSize(int id, int px);
+    void setCollapsedSize(int id, int px);
     // Effective (animated) size in pixels right now, 0 when fully collapsed.
     int currentSize(int id) const;
     QWidget *pane(int id) const { return m_panes[id].w; }

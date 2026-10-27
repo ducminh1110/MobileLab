@@ -4,6 +4,7 @@
 #include <QKeyEvent>
 #include <QPainter>
 #include <QScreen>
+#include <QScrollArea>
 #include "EditorParts.h"
 #include "GlassMenu.h"
 #include "UiUtil.h"
@@ -15,7 +16,7 @@ SheetDialog::SheetDialog(const QString &title, QWidget *parent, const QSize &con
     setWindowModality(parent ? Qt::WindowModal : Qt::ApplicationModal);
     setAccessibleName(title);
     setWindowTitle(title);
-    setFixedSize(contentSize.width() + 2 * kShadow, contentSize.height() + 2 * kShadow);
+    fit();
     auto *outer = new QVBoxLayout(this);
     outer->setContentsMargins(kShadow + 20, kShadow + 16, kShadow + 20, kShadow + 16);
     outer->setSpacing(10);
@@ -27,6 +28,27 @@ SheetDialog::SheetDialog(const QString &title, QWidget *parent, const QSize &con
     m_body->setSpacing(8);
     outer->addLayout(m_body, 1);
     connect(&Theme::instance(), &Theme::changed, this, [this] { m_materialSize = QSize(); update(); });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { fit(); place(); });
+}
+
+// The sheet grows with the text size, but not past the window it opens over (and never below its base size).
+void SheetDialog::fit() {
+    QSize c(Theme::scaled(m_content.width()), Theme::scaled(m_content.height()));
+    if (QWidget *p = parentWidget() ? parentWidget()->window() : nullptr)
+        c = c.boundedTo(QSize(p->width() - 40, p->height() - qMin(80, p->height() / 8) - 20).expandedTo(m_content));
+    setFixedSize(c.width() + 2 * kShadow, c.height() + 2 * kShadow);
+    m_materialSize = QSize();
+}
+
+QScrollArea *SheetDialog::scrolling(QWidget *page, QWidget *parent) {
+    auto *s = new QScrollArea(parent);
+    s->setWidgetResizable(true);
+    s->setFrameShape(QFrame::NoFrame);
+    s->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    s->viewport()->setAutoFillBackground(false);
+    s->setWidget(page);
+    page->setAutoFillBackground(false);   // setWidget turns it on
+    return s;
 }
 
 void SheetDialog::setTitleText(const QString &t) {
@@ -104,13 +126,24 @@ ShortcutsSheet::ShortcutsSheet(QWidget *parent) : SheetDialog("Keyboard Shortcut
         {"Go forward", "Ctrl+Alt+Right"}, {"Clear console", "Ctrl+K"}, {"Settings", "Ctrl+,"},
         {"Attributes / History / Quick Help inspector", "Ctrl+Alt+1, 2, 3"}, {"Refresh targets", "F5"}, {"Quit", "Ctrl+Q"},
     };
+    // At the default size the rows sit in the sheet as they always did; larger text can need more room than the
+    // sheet has, so the rows scroll then.
+    const bool scroll = Theme::instance().textScale() > 1.0;
+    auto *list = scroll ? new QWidget(this) : nullptr;
+    QVBoxLayout *into = body();
+    if (scroll) {
+        into = new QVBoxLayout(list);
+        into->setContentsMargins(0, 0, 0, 0);
+        into->setSpacing(6);
+    }
     for (const auto &r : rows) {
         auto *h = new QHBoxLayout;
-        h->addWidget(new ThemedLabel(r.action, 13, QFont::Normal, ThemedLabel::Role::Text, this), 1);
-        h->addWidget(new ThemedLabel(r.keys, 12, QFont::Medium, ThemedLabel::Role::Secondary, this, true));
-        body()->addLayout(h);
+        h->addWidget(new ThemedLabel(r.action, 13, QFont::Normal, ThemedLabel::Role::Text, scroll ? list : this), 1);
+        h->addWidget(new ThemedLabel(r.keys, 12, QFont::Medium, ThemedLabel::Role::Secondary, scroll ? list : this, true));
+        into->addLayout(h);
     }
-    body()->addStretch();
+    into->addStretch();
+    if (scroll) body()->addWidget(scrolling(list, this), 1);
     auto *row = new QHBoxLayout;
     row->addStretch();
     auto *ok = new PillButton("Done", PillButton::Style::Primary, this);

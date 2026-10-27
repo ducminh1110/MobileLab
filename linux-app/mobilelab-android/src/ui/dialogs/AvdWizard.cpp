@@ -19,7 +19,7 @@ AvdWizard::AvdWizard(const AppContext &ctx, QWidget *parent) : SheetDialog("New 
     auto field = [&](const QString &label, QWidget *w) {
         auto *row = new QHBoxLayout;
         auto *l = new ThemedLabel(label, 13, QFont::Normal, ThemedLabel::Role::Secondary, this);
-        l->setFixedWidth(120);
+        l->setFixedWidth(Theme::scaled(120));
         l->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         row->addWidget(l);
         row->addWidget(w, 1);
@@ -33,13 +33,13 @@ AvdWizard::AvdWizard(const AppContext &ctx, QWidget *parent) : SheetDialog("New 
     m_image->setEnabled(!names.isEmpty());
     m_image->setAccessibleName("System image");
     m_name = new QLineEdit(this);
-    m_name->setFont(Theme::instance().ui(13));
+    Ui::bindFont(m_name, 13);
     m_name->setAccessibleName("AVD name");
-    m_name->setFixedHeight(28);
+    m_name->setFixedHeight(Theme::scaled(28));
     m_device = new QLineEdit("pixel_8", this);
-    m_device->setFont(Theme::instance().ui(13));
+    Ui::bindFont(m_device, 13);
     m_device->setAccessibleName("Device profile");
-    m_device->setFixedHeight(28);
+    m_device->setFixedHeight(Theme::scaled(28));
     field("Name", m_name);
     field("System image", m_image);
     field("Device profile", m_device);

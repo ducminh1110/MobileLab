@@ -1,8 +1,12 @@
 #include "Widgets.h"
+#include <QButtonGroup>
 #include <QHBoxLayout>
 #include <QKeyEvent>
+#include <QLabel>
+#include <QLineF>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QRadioButton>
 #include "GlassMenu.h"
 #include "Icons.h"
 #include "UiUtil.h"
@@ -12,7 +16,7 @@
 GlassLineEdit::GlassLineEdit(QWidget *parent) : QLineEdit(parent) {
     setFrame(false);
     setProperty("bare", true);
-    setFont(Theme::instance().ui(12));
+    Ui::bindFont(this, 12);
     setAttribute(Qt::WA_MacShowFocusRect, false);
     setClearButtonEnabled(false);
 }
@@ -50,6 +54,7 @@ FilterBar::FilterBar(QWidget *parent) : GlassPanel(parent, Glass::Kind::Field) {
         emit textChanged(t);
     });
     connect(&Theme::instance(), &Theme::changed, this, [this] { m_clear->setTint(tk().textTertiary); });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { updateGeometry(); });
     setFocusProxy(m_edit);
 }
 
@@ -81,13 +86,15 @@ SegmentedControl::SegmentedControl(const QStringList &labels, QWidget *parent) :
     setFocusPolicy(Qt::StrongFocus);
     setObjectName("segmented");
     setAccessibleName("View");
+    setAccessibleDescription(m_labels.value(0));
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { updateGeometry(); });
 }
 
 QSize SegmentedControl::sizeHint() const {
     const QFontMetrics fm(Theme::instance().ui(12, QFont::Medium));
     int w = 0;
     for (const auto &l : m_labels) w += fm.horizontalAdvance(l) + 28;
-    return QSize(w + 2 * (shadowMargin() + 2), 26 + 2 * shadowMargin());
+    return QSize(w + 2 * (shadowMargin() + 2), Theme::scaled(26) + 2 * shadowMargin());
 }
 
 QRect SegmentedControl::segmentRect(int i) const {
@@ -105,6 +112,7 @@ QRect SegmentedControl::segmentRect(int i) const {
 void SegmentedControl::setCurrent(int i, bool emitSignal) {
     if (i < 0 || i >= m_labels.size() || i == m_current) return;
     m_current = i;
+    setAccessibleDescription(m_labels[i]);
     update();
     if (emitSignal) emit currentChanged(i);
 }
@@ -142,7 +150,7 @@ void SegmentedControl::keyPressEvent(QKeyEvent *e) {
 
 PopupButton::PopupButton(QWidget *parent) : QAbstractButton(parent) {
     setFocusPolicy(Qt::StrongFocus);
-    setFont(Theme::instance().ui(12));
+    Ui::bindFont(this, 12);
     connect(this, &QAbstractButton::clicked, this, &PopupButton::openMenu);
 }
 
@@ -164,7 +172,7 @@ QSize PopupButton::sizeHint() const {
     const QFontMetrics fm(Theme::instance().ui(12));
     int w = 0;
     for (const auto &s : m_items) w = qMax(w, fm.horizontalAdvance(s));
-    return QSize(w + (m_flat ? 22 : 34), 22);
+    return QSize(w + (m_flat ? 22 : 34), Theme::scaled(22));
 }
 
 void PopupButton::openMenu() {
@@ -201,6 +209,94 @@ void PopupButton::paintEvent(QPaintEvent *) {
     if (hasFocus() && !isDown()) Ui::drawFocusRing(&p, r, 6);
 }
 
+// --- SwatchRow ----------------------------------------------------------------------------------------
+
+// One round swatch. A QRadioButton underneath, so assistive technology reports a radio group; it only paints
+// itself differently and takes the arrow keys.
+class SwatchButton : public QRadioButton {
+public:
+    SwatchButton(SwatchRow *row, std::function<QColor()> color) : QRadioButton(row), m_row(row), m_color(std::move(color)) {
+        setFixedSize(32, 32);
+        setCursor(Qt::PointingHandCursor);
+        setAttribute(Qt::WA_Hover, true);
+    }
+    QSize sizeHint() const override { return QSize(32, 32); }
+    QSize minimumSizeHint() const override { return QSize(32, 32); }
+protected:
+    bool hitButton(const QPoint &pos) const override { return QLineF(QRectF(rect()).center(), QPointF(pos)).length() <= 14; }
+    void keyPressEvent(QKeyEvent *e) override {
+        if (e->key() == Qt::Key_Left || e->key() == Qt::Key_Up) m_row->step(-1);
+        else if (e->key() == Qt::Key_Right || e->key() == Qt::Key_Down) m_row->step(1);
+        else QRadioButton::keyPressEvent(e);
+    }
+    void paintEvent(QPaintEvent *) override {
+        const Tokens &t = tk();
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        const QRectF dot = QRectF(rect()).adjusted(6, 6, -6, -6);
+        if (isChecked()) {
+            p.setPen(QPen(t.text, 2));
+            p.setBrush(Qt::NoBrush);
+            p.drawEllipse(QRectF(rect()).adjusted(3, 3, -3, -3));
+        } else if (underMouse()) {
+            p.setPen(QPen(Ui::withAlpha(t.text, 70), 2));
+            p.setBrush(Qt::NoBrush);
+            p.drawEllipse(QRectF(rect()).adjusted(3, 3, -3, -3));
+        }
+        p.setPen(QPen(Ui::withAlpha(t.text, 36), 1));
+        p.setBrush(m_color());
+        p.drawEllipse(dot);
+        if (isChecked()) Icons::paint(&p, "checkmark", dot.adjusted(4.5, 4.5, -4.5, -4.5), Qt::white);
+        if (hasFocus()) Ui::drawFocusRing(&p, QRectF(rect()).adjusted(2, 2, -2, -2), (width() - 4) / 2.0);
+    }
+private:
+    SwatchRow *m_row;
+    std::function<QColor()> m_color;
+};
+
+SwatchRow::SwatchRow(const QStringList &names, std::function<QColor(int)> colorOf, const QString &groupName, QWidget *parent) : QWidget(parent), m_names(names) {
+    setAccessibleName(groupName);
+    auto *h = new QHBoxLayout(this);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(2);
+    m_group = new QButtonGroup(this);
+    for (int i = 0; i < names.size(); ++i) {
+        auto *b = new SwatchButton(this, [colorOf, i] { return colorOf(i); });
+        b->setAccessibleName(groupName + " " + names[i]);
+        b->setToolTip(names[i]);
+        m_group->addButton(b, i);
+        h->addWidget(b);
+        connect(b, &QAbstractButton::toggled, this, [this, i](bool on) {
+            if (!on) return;
+            m_name->setText(m_names[i]);
+            if (!m_syncing) emit currentChanged(i);
+        });
+    }
+    m_name = new QLabel(this);
+    Ui::bindFont(m_name, 13);
+    h->addSpacing(8);
+    h->addWidget(m_name, 1);
+    setCurrent(0);
+}
+
+int SwatchRow::current() const { return m_group->checkedId(); }
+
+QAbstractButton *SwatchRow::swatch(int i) const { return m_group->button(i); }
+
+void SwatchRow::setCurrent(int i, bool emitSignal) {
+    if (i < 0 || i >= m_names.size()) return;
+    m_syncing = !emitSignal;
+    swatch(i)->setChecked(true);
+    m_syncing = false;
+    m_name->setText(m_names[i]);
+}
+
+void SwatchRow::step(int delta) {
+    const int i = qBound(0, current() + delta, m_names.size() - 1);
+    swatch(i)->setFocus(Qt::TabFocusReason);
+    if (i != current()) setCurrent(i, true);
+}
+
 // --- EmptyState ---------------------------------------------------------------------------------------
 
 EmptyState::EmptyState(QWidget *parent) : QWidget(parent) {
@@ -225,7 +321,7 @@ QRect EmptyState::actionRect() const {
     if (m_action.isEmpty()) return {};
     const QFontMetrics fm(Theme::instance().ui(12, QFont::DemiBold));
     const int w = fm.horizontalAdvance(m_action) + 28;
-    return QRect((width() - w) / 2, height() / 2 + 46, w, 26);
+    return QRect((width() - w) / 2, height() / 2 - 70 + 40 + Theme::scaled(22) + Theme::scaled(60) - 6, w, Theme::scaled(26));
 }
 
 void EmptyState::paintEvent(QPaintEvent *) {
@@ -237,19 +333,19 @@ void EmptyState::paintEvent(QPaintEvent *) {
     if (!m_icon.isEmpty()) Icons::paint(&p, m_icon, QRectF(cx - 16, top, 32, 32), t.textTertiary);
     p.setFont(Theme::instance().ui(13, QFont::DemiBold));
     p.setPen(t.textSecondary);
-    p.drawText(QRect(12, top + 40, width() - 24, 20), Qt::AlignHCenter | Qt::AlignVCenter, m_title);
+    p.drawText(QRect(12, top + 40, width() - 24, Theme::scaled(20)), Qt::AlignHCenter | Qt::AlignVCenter, m_title);
     p.setFont(Theme::instance().ui(12));
     p.setPen(t.textTertiary);
-    p.drawText(QRect(20, top + 62, width() - 40, 60), Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, m_body);
+    p.drawText(QRect(20, top + 40 + Theme::scaled(22), width() - 40, Theme::scaled(60)), Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, m_body);
     const QRect ar = actionRect();
     if (!ar.isEmpty()) {
         p.setPen(Qt::NoPen);
         p.setBrush(m_down ? t.accent.darker(120) : (m_hover ? t.accent.lighter(110) : t.accent));
-        p.drawRoundedRect(ar, 13, 13);
+        p.drawRoundedRect(ar, ar.height() / 2.0, ar.height() / 2.0);
         p.setFont(Theme::instance().ui(12, QFont::DemiBold));
         p.setPen(t.accentText);
         p.drawText(ar, Qt::AlignCenter, m_action);
-        if (hasFocus()) Ui::drawFocusRing(&p, QRectF(ar), 13);
+        if (hasFocus()) Ui::drawFocusRing(&p, QRectF(ar), ar.height() / 2.0);
     }
 }
 

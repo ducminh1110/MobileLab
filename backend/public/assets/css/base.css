@@ -4,8 +4,8 @@ html, body { height: 100%; margin: 0; }
 
 body {
   font-family: "Inter", sans-serif;
-  font-size: 13px;
-  line-height: 22px;
+  font-size: calc(13px * var(--ts));
+  line-height: var(--row-h);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
@@ -91,19 +91,20 @@ svg { display: block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-@media (prefers-reduced-motion: reduce) {
-  .spin { animation-duration: 2.4s; }
-  .pulse { animation: none; }
-  * { scroll-behavior: auto !important; }
+/* Reduce motion: Settings, or the operating system until Settings says otherwise (html[data-motion] is written by
+   core/appearance.js). No animations or transitions; the spinner stays, slower, because it is the only sign of progress. */
+:root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after {
+  animation: none !important; transition: none !important; scroll-behavior: auto !important;
 }
+:root[data-motion="reduce"] .spin { animation: spin 2.4s linear infinite !important; }
 
 /* ---------- buttons ---------- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: 22px; padding: 0 10px; border-radius: 6px;
+  height: var(--row-h); padding: 0 10px; border-radius: 6px;
   background: var(--capsule); color: var(--text);
   box-shadow: 0 0 0 0.5px var(--input-border), 0 0.5px 1.5px rgb(0 0 0 / 10%);
-  font-size: 13px; line-height: 22px; white-space: nowrap;
+  font-size: calc(13px * var(--ts)); line-height: var(--row-h); white-space: nowrap;
 }
 .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--capsule) 92%, var(--text)); }
 .btn:active:not(:disabled) { background: color-mix(in srgb, var(--capsule) 84%, var(--text)); }
@@ -113,8 +114,8 @@ svg { display: block; }
 .btn-primary:active:not(:disabled) { background: color-mix(in srgb, var(--accent) 80%, #000); }
 .btn-primary:disabled { background: color-mix(in srgb, var(--accent) 45%, var(--capsule)); color: rgb(255 255 255 / 80%); }
 .btn-danger { color: var(--fail); }
-.btn-lg { height: 28px; padding: 0 14px; line-height: 28px; border-radius: 7px; }
-.btn-sm { height: 20px; padding: 0 8px; font-size: 12px; line-height: 20px; }
+.btn-lg { height: var(--bar-h); padding: 0 14px; line-height: var(--bar-h); border-radius: 7px; }
+.btn-sm { height: round(20px * var(--ts), 1px); padding: 0 8px; font-size: calc(12px * var(--ts)); line-height: round(20px * var(--ts), 1px); }
 
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
@@ -128,7 +129,7 @@ svg { display: block; }
 
 /* popup button (Xcode's pull-down: label + up/down chevrons) */
 .popup {
-  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px 0 9px; border-radius: 6px;
+  display: inline-flex; align-items: center; gap: 6px; height: var(--row-h); padding: 0 6px 0 9px; border-radius: 6px;
   background: var(--capsule); box-shadow: 0 0 0 0.5px var(--input-border), 0 0.5px 1.5px rgb(0 0 0 / 10%);
   max-width: 100%; min-width: 0;
 }
@@ -139,17 +140,17 @@ svg { display: block; }
 
 /* ---------- fields ---------- */
 .field {
-  height: 22px; padding: 0 8px; border-radius: 6px; width: 100%; min-width: 0;
+  height: var(--row-h); padding: 0 8px; border-radius: 6px; width: 100%; min-width: 0;
   background: var(--editor); box-shadow: 0 0 0 0.5px var(--input-border) inset;
-  border: 0; font-size: 13px; line-height: 22px;
+  border: 0; font-size: calc(13px * var(--ts)); line-height: var(--row-h);
 }
 .field::placeholder { color: var(--text-tertiary); }
 .field:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 0; border-radius: 6px; }
 textarea.field { height: auto; min-height: 66px; padding: 4px 8px; resize: vertical; }
-.field-mono { font-family: "JetBrains Mono", monospace; font-size: 12px; }
+.field-mono { font-family: "JetBrains Mono", monospace; font-size: calc(12px * var(--ts)); }
 .field-error { box-shadow: 0 0 0 1px var(--fail) inset; }
 
-.check { display: inline-flex; align-items: center; gap: 7px; line-height: 20px; }
+.check { display: inline-flex; align-items: center; gap: 7px; line-height: round(20px * var(--ts), 1px); }
 .check input {
   appearance: none; width: 14px; height: 14px; margin: 0; border-radius: 4px; flex: none;
   background: var(--editor); box-shadow: 0 0 0 0.5px var(--input-border) inset, 0 0.5px 1px rgb(0 0 0 / 10%);
@@ -167,7 +168,7 @@ textarea.field { height: auto; min-height: 66px; padding: 4px 8px; resize: verti
   box-shadow: 0 0 0 0.5px var(--input-border) inset;
 }
 .segmented button {
-  height: 22px; padding: 0 14px; border-radius: 5px; font-size: 12px; line-height: 22px; font-weight: 500; color: var(--text);
+  height: var(--row-h); padding: 0 14px; border-radius: 5px; font-size: calc(12px * var(--ts)); line-height: var(--row-h); font-weight: 500; color: var(--text);
 }
 .segmented button[aria-selected="true"], .segmented button[aria-pressed="true"] {
   background: var(--capsule); box-shadow: 0 0.5px 2px rgb(0 0 0 / 18%), 0 0 0 0.5px var(--input-border);
@@ -176,8 +177,8 @@ textarea.field { height: auto; min-height: 66px; padding: 4px 8px; resize: verti
 
 /* ---------- small things ---------- */
 .tag {
-  display: inline-flex; align-items: center; height: 14px; padding: 0 5px; border-radius: 4px;
-  font-size: 9.5px; line-height: 14px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
+  display: inline-flex; align-items: center; height: round(14px * var(--ts), 1px); padding: 0 5px; border-radius: 4px;
+  font-size: calc(9.5px * var(--ts)); line-height: round(14px * var(--ts), 1px); font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
   color: var(--text-secondary); background: color-mix(in srgb, var(--text) 9%, transparent);
 }
 .tag-demo { color: #7a4a00; background: color-mix(in srgb, var(--warn) 32%, transparent); }
@@ -186,7 +187,7 @@ textarea.field { height: auto; min-height: 66px; padding: 4px 8px; resize: verti
 
 .kbd {
   display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 4px; text-align: center;
-  font-family: "Inter", sans-serif; font-size: 11px; line-height: 17px; color: var(--text-secondary);
+  font-family: "Inter", sans-serif; font-size: calc(11px * var(--ts)); line-height: round(17px * var(--ts), 1px); color: var(--text-secondary);
   background: var(--field); box-shadow: 0 0 0 0.5px var(--input-border);
 }
 
@@ -201,13 +202,13 @@ textarea.field { height: auto; min-height: 66px; padding: 4px 8px; resize: verti
 
 .empty {
   display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px 24px; text-align: center;
-  color: var(--text-secondary); font-size: 12px; line-height: 17px;
+  color: var(--text-secondary); font-size: calc(12px * var(--ts)); line-height: round(17px * var(--ts), 1px);
 }
 .empty .ic-32 { color: var(--text-tertiary); }
-.empty strong { font-size: 13px; font-weight: 600; color: var(--text); line-height: 18px; }
+.empty strong { font-size: calc(13px * var(--ts)); font-weight: 600; color: var(--text); line-height: round(18px * var(--ts), 1px); }
 .empty p { max-width: 240px; }
 .empty .btn { margin-top: 4px; }
 .empty-pass .ic-32 { color: var(--pass); }
 
-.err-inline { color: var(--fail); font-size: 12px; line-height: 16px; }
-.mono-secondary { font-family: "JetBrains Mono", monospace; color: var(--text-secondary); font-size: 11.5px; }
+.err-inline { color: var(--fail); font-size: calc(12px * var(--ts)); line-height: round(16px * var(--ts), 1px); }
+.mono-secondary { font-family: "JetBrains Mono", monospace; color: var(--text-secondary); font-size: calc(11.5px * var(--ts)); }

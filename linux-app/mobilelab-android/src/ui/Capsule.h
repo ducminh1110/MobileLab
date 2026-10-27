@@ -21,8 +21,8 @@ public:
     explicit Capsule(QWidget *parent = nullptr);
     void setState(const State &s);
     const State &state() const { return m_state; }
-    QSize sizeHint() const override { return QSize(560, 40); }
-    QSize minimumSizeHint() const override { return QSize(300, 40); }
+    QSize sizeHint() const override { return QSize(560, Metrics::capsuleHeight() + 2 * shadowMargin()); }
+    QSize minimumSizeHint() const override { return QSize(300, Metrics::capsuleHeight() + 2 * shadowMargin()); }
     QRect regionRect(Region r) const;   // in widget coordinates
     void paintContent(QPainter &p, const QRect &shape) override;
     QString accessibleSummary() const;

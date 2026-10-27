@@ -13,6 +13,39 @@ QColor c(const char *hex) { return QColor(QLatin1String(hex)); }
 QColor a(int r, int g, int b, qreal alpha) { return QColor(r, g, b, qRound(alpha * 255)); }
 QString g_ui = "Inter", g_mono = "JetBrains Mono";
 bool g_fontsLoaded = false, g_fontsOk = false;
+
+// Accent swatches, in the order of Theme::Accent. White text must keep 3:1 on every value (tst_theme checks it),
+// which is why the dark Orange, Green and Graphite are deeper than Apple's own system colours.
+struct AccentDef { const char *key, *name, *light, *dark; };
+const AccentDef kAccents[Theme::accentCount] = {
+    {"blue", "Blue", "#0a7aff", "#0a84ff"},
+    {"purple", "Purple", "#8944ab", "#bf5af2"},
+    {"pink", "Pink", "#d6336c", "#ff375f"},
+    {"red", "Red", "#d92d20", "#ff453a"},
+    {"orange", "Orange", "#c2570c", "#d97706"},
+    {"green", "Green", "#248a3d", "#2da44e"},
+    {"graphite", "Graphite", "#6b6b70", "#8e8e93"},
+};
+
+struct TextSizeDef { const char *key, *name; qreal scale; };
+const TextSizeDef kTextSizes[Theme::textSizeCount] = {
+    {"small", "Small", 0.92},
+    {"default", "Default", 1.0},
+    {"large", "Large", 1.1},
+    {"larger", "Larger", 1.2},
+};
+
+// A stored flag; anything that is not a recognisable true or false is the default.
+bool storedBool(const QVariant &v, bool fallback) {
+    if (v.typeId() == QMetaType::Bool) return v.toBool();
+    const QString s = v.toString().trimmed().toLower();
+    if (s == "true" || s == "1") return true;
+    if (s == "false" || s == "0") return false;
+    return fallback;
+}
+
+int accentIndex(Theme::Accent a) { return qBound(0, int(a), Theme::accentCount - 1); }
+int textSizeIndex(Theme::TextSize s) { return qBound(0, int(s), Theme::textSizeCount - 1); }
 }
 
 Theme::Theme() {
@@ -27,13 +60,13 @@ Theme &Theme::instance() {
     return t;
 }
 
-Tokens Theme::tokens(bool dark) {
+Tokens Theme::tokens(bool dark, Accent accent) {
     Tokens k;
     k.dark = dark;
     if (!dark) {
         k.window = c("#f5f5f7"); k.sidebar = c("#f3f5f7"); k.editor = c("#ffffff"); k.gutter = c("#fbfbfc");
         k.gutterText = c("#b4b6ba"); k.divider = c("#e4e4e8"); k.text = c("#1d1d1f"); k.textSecondary = c("#6c6c72");
-        k.textTertiary = c("#a1a1a8"); k.accent = c("#0a7aff"); k.accentText = c("#ffffff");
+        k.textTertiary = c("#a1a1a8"); k.accentText = c("#ffffff");
         k.selection = c("#dcdde1"); k.capsule = c("#ffffff"); k.folder = c("#5cb0f5"); k.field = c("#efeff1");
         k.debugBar = c("#f2f2f4"); k.console = c("#eaf1e8"); k.consoleFooter = c("#dbe7d9");
         k.lineCurrent = c("#e5f7e8"); k.lineError = c("#fdeceb"); k.pass = c("#30b356"); k.fail = c("#ff3b30");
@@ -50,7 +83,7 @@ Tokens Theme::tokens(bool dark) {
     } else {
         k.window = c("#2a2a2d"); k.sidebar = c("#262629"); k.editor = c("#1f1f24"); k.gutter = c("#1f1f24");
         k.gutterText = c("#5f6068"); k.divider = c("#3a3a3f"); k.text = c("#ececee"); k.textSecondary = c("#a0a0a8");
-        k.textTertiary = c("#6f6f78"); k.accent = c("#0a84ff"); k.accentText = c("#ffffff");
+        k.textTertiary = c("#6f6f78"); k.accentText = c("#ffffff");
         k.selection = c("#3c3c42"); k.capsule = c("#3b3b3f"); k.folder = c("#5cb0f5"); k.field = c("#333338");
         k.debugBar = c("#2c2c30"); k.console = c("#1d2a22"); k.consoleFooter = c("#17211b");
         k.lineCurrent = c("#26372c"); k.lineError = c("#3a2426"); k.pass = c("#32d15b"); k.fail = c("#ff453a");
@@ -65,10 +98,38 @@ Tokens Theme::tokens(bool dark) {
         k.glassSheen = a(255, 255, 255, 0.16); k.glassOpaque = c("#3b3b3f");
         k.glassHover = a(255, 255, 255, 0.07); k.glassPressed = a(255, 255, 255, 0.14);
     }
+    k.accent = accentColor(accent, dark);
     k.selectionFocused = k.accent;
     k.running = k.accent;
     return k;
 }
+
+QString Theme::accentName(Accent a) { return QString::fromLatin1(kAccents[accentIndex(a)].name); }
+QString Theme::accentKey(Accent a) { return QString::fromLatin1(kAccents[accentIndex(a)].key); }
+
+Theme::Accent Theme::accentFromKey(const QString &key, Accent fallback) {
+    const QString k = key.trimmed().toLower();
+    for (int i = 0; i < accentCount; ++i)
+        if (k == QLatin1String(kAccents[i].key)) return Accent(i);
+    return fallback;
+}
+
+QColor Theme::accentColor(Accent a, bool dark) {
+    const AccentDef &d = kAccents[accentIndex(a)];
+    return c(dark ? d.dark : d.light);
+}
+
+QString Theme::textSizeName(TextSize s) { return QString::fromLatin1(kTextSizes[textSizeIndex(s)].name); }
+QString Theme::textSizeKey(TextSize s) { return QString::fromLatin1(kTextSizes[textSizeIndex(s)].key); }
+
+Theme::TextSize Theme::textSizeFromKey(const QString &key, TextSize fallback) {
+    const QString k = key.trimmed().toLower();
+    for (int i = 0; i < textSizeCount; ++i)
+        if (k == QLatin1String(kTextSizes[i].key)) return TextSize(i);
+    return fallback;
+}
+
+qreal Theme::textScaleOf(TextSize s) { return kTextSizes[textSizeIndex(s)].scale; }
 
 bool Theme::ensureFonts() {
     if (g_fontsLoaded) return g_fontsOk;
@@ -106,7 +167,7 @@ bool Theme::detectSystemDark() {
 void Theme::recompute() {
     const bool dark = m_mode == Mode::Dark || (m_mode == Mode::System && m_systemDark);
     m_dark = dark;
-    m_tokens = tokens(dark);
+    m_tokens = tokens(dark, m_accent);
 }
 
 void Theme::setMode(Mode m) {
@@ -130,10 +191,37 @@ void Theme::setReducedMotion(bool on) {
     emit motionChanged();
 }
 
+void Theme::setAccent(Accent a) {
+    a = Accent(accentIndex(a));
+    if (a == m_accent) return;
+    m_accent = a;
+    recompute();
+    emit changed();
+}
+
+void Theme::setTextSize(TextSize s) {
+    s = TextSize(textSizeIndex(s));
+    if (s == m_textSize) return;
+    m_textSize = s;
+    emit textScaleChanged();
+    emit changed();
+}
+
+void Theme::resetAppearance() {
+    const bool resized = m_textSize != TextSize::Default;
+    const bool restyled = resized || m_mode != Mode::System || m_accent != Accent::Blue;
+    m_mode = Mode::System;
+    m_accent = Accent::Blue;
+    m_textSize = TextSize::Default;
+    recompute();
+    if (resized) emit textScaleChanged();
+    if (restyled) emit changed();
+    setReducedMotion(false);
+}
+
 QFont Theme::ui(qreal px, QFont::Weight w) const {
     QFont f(g_ui);
-    f.setPixelSize(qRound(px));
-    if (px != qRound(px)) f.setPixelSize(qRound(px));
+    f.setPixelSize(qRound(px * textScale()));
     f.setWeight(w);
     f.setStyleStrategy(QFont::PreferAntialias);
     f.setHintingPreference(QFont::PreferNoHinting);
@@ -142,7 +230,7 @@ QFont Theme::ui(qreal px, QFont::Weight w) const {
 
 QFont Theme::mono(qreal px, QFont::Weight w) const {
     QFont f(g_mono);
-    f.setPixelSize(qRound(px));
+    f.setPixelSize(qRound(px * textScale()));
     f.setWeight(w);
     f.setStyleStrategy(QFont::PreferAntialias);
     f.setHintingPreference(QFont::PreferNoHinting);
@@ -180,15 +268,21 @@ QPalette Theme::palette() const {
 void Theme::load(QSettings &s) {
     const QString m = s.value("appearance/mode", "system").toString();
     m_mode = m == "light" ? Mode::Light : m == "dark" ? Mode::Dark : Mode::System;
-    if (!qEnvironmentVariableIsSet("MOBILELAB_REDUCED_MOTION")) m_reducedMotion = s.value("appearance/reducedMotion", false).toBool();
-    // MOBILELAB_THEME forces the appearance (tests, screenshots).
+    m_accent = accentFromKey(s.value("appearance/accent", "blue").toString());
+    m_textSize = textSizeFromKey(s.value("appearance/textSize", "default").toString());
+    if (!qEnvironmentVariableIsSet("MOBILELAB_REDUCED_MOTION")) m_reducedMotion = storedBool(s.value("appearance/reducedMotion"), false);
+    // MOBILELAB_THEME, MOBILELAB_ACCENT and MOBILELAB_TEXT_SIZE force the appearance (tests, screenshots).
     const QByteArray env = qgetenv("MOBILELAB_THEME").toLower();
     if (env == "dark") m_mode = Mode::Dark;
     else if (env == "light") m_mode = Mode::Light;
+    m_accent = accentFromKey(qEnvironmentVariable("MOBILELAB_ACCENT"), m_accent);
+    m_textSize = textSizeFromKey(qEnvironmentVariable("MOBILELAB_TEXT_SIZE"), m_textSize);
     recompute();
 }
 
 void Theme::save(QSettings &s) const {
     s.setValue("appearance/mode", m_mode == Mode::Light ? "light" : m_mode == Mode::Dark ? "dark" : "system");
+    s.setValue("appearance/accent", accentKey(m_accent));
+    s.setValue("appearance/textSize", textSizeKey(m_textSize));
     s.setValue("appearance/reducedMotion", m_reducedMotion);
 }

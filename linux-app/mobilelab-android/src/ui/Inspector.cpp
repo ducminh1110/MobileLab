@@ -22,11 +22,11 @@
 
 namespace {
 
-// One key/value row: right aligned label in an 84 px column, value left aligned.
+// One key/value row: right aligned label in an 84 px column (scaled with the text size), value left aligned.
 class KeyValueRow : public QWidget {
 public:
     KeyValueRow(const QString &key, const QString &value, bool mono, const QColor &dot, bool copy, QWidget *parent) : QWidget(parent), m_key(key), m_value(value), m_mono(mono), m_dot(dot), m_copy(copy) {
-        setMinimumHeight(Metrics::navRow);
+        setMinimumHeight(Metrics::navRow());
         setToolTip(value);
         setAccessibleName(key);
         setAccessibleDescription(value);
@@ -42,12 +42,13 @@ protected:
         p.setRenderHint(QPainter::Antialiasing);
         p.setFont(Theme::instance().ui(11.5));
         p.setPen(t.textSecondary);
-        p.drawText(QRect(0, 0, 84, Metrics::navRow), Qt::AlignRight | Qt::AlignVCenter, QFontMetrics(p.font()).elidedText(m_key, Qt::ElideRight, 84));
-        int x = 94;
+        const int keyW = Theme::scaled(84);
+        p.drawText(QRect(0, 0, keyW, Metrics::navRow()), Qt::AlignRight | Qt::AlignVCenter, QFontMetrics(p.font()).elidedText(m_key, Qt::ElideRight, keyW));
+        int x = keyW + 10;
         if (m_dot.isValid()) {
             p.setPen(Qt::NoPen);
             p.setBrush(m_dot);
-            p.drawEllipse(QPointF(x + 4, Metrics::navRow / 2.0), 4, 4);
+            p.drawEllipse(QPointF(x + 4, Metrics::navRow() / 2.0), 4, 4);
             x += 14;
         }
         const int right = width() - 10 - (m_copy ? 22 : 0);
@@ -59,19 +60,19 @@ protected:
         }
     }
     void mouseMoveEvent(QMouseEvent *e) override {
-        const bool h = m_copy && e->position().x() > width() - 28 && e->position().y() < 24;
+        const bool h = m_copy && e->position().x() > width() - 28 && e->position().y() < Theme::scaled(24);
         if (h != m_copyHover) { m_copyHover = h; setCursor(h ? Qt::PointingHandCursor : Qt::ArrowCursor); update(); }
     }
     void mousePressEvent(QMouseEvent *e) override {
-        if (m_copy && e->position().x() > width() - 28 && e->position().y() < 24) QApplication::clipboard()->setText(m_value);
+        if (m_copy && e->position().x() > width() - 28 && e->position().y() < Theme::scaled(24)) QApplication::clipboard()->setText(m_value);
     }
     void leaveEvent(QEvent *) override { m_copyHover = false; update(); }
 private:
     int heightFor(int w) const {
         const QFont f = m_mono ? Theme::instance().mono(11) : Theme::instance().ui(12);
-        const int avail = qMax(40, w - 94 - 10 - (m_dot.isValid() ? 14 : 0) - (m_copy ? 22 : 0));
+        const int avail = qMax(40, w - Theme::scaled(84) - 10 - 10 - (m_dot.isValid() ? 14 : 0) - (m_copy ? 22 : 0));
         const QRect br = QFontMetrics(f).boundingRect(QRect(0, 0, avail, 4000), Qt::TextWrapAnywhere | Qt::AlignLeft, m_value);
-        return qMax(Metrics::navRow, br.height() + 6);
+        return qMax(Metrics::navRow(), br.height() + 6);
     }
     QString m_key, m_value;
     bool m_mono, m_copy, m_copyHover = false;
@@ -83,7 +84,7 @@ public:
     SectionHeader(const QString &title, QWidget *parent) : QAbstractButton(parent), m_title(title) {
         setCheckable(true);
         setChecked(true);
-        setFixedHeight(26);
+        setFixedHeight(Theme::scaled(26));
         setFocusPolicy(Qt::StrongFocus);
         setAccessibleName(title);
     }
@@ -347,7 +348,7 @@ void Inspector::rebuildHistory() {
         h->setContentsMargins(12, 3, 12, 3);
         h->setSpacing(8);
         auto *time = new ThemedLabel(e.time.toString("HH:mm:ss"), 11, QFont::Normal, ThemedLabel::Role::Tertiary, row, true);
-        time->setFixedWidth(58);
+        time->setFixedWidth(Theme::scaled(58));
         time->setAlignment(Qt::AlignTop);
         h->addWidget(time);
         auto *txt = new ThemedLabel("[" + e.source + "] " + e.text, 12, QFont::Normal, ThemedLabel::Role::Text, row);

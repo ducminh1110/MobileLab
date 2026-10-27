@@ -6,16 +6,22 @@ import { state, prefs, setPref, onRender, invalidate } from "../core/state.js";
 import { clamp } from "../core/util.js";
 import { commandForEvent, hooks, isEnabled, regions, togglePanel } from "../core/actions.js";
 import { glassBusy } from "../core/glass.js";
+import { applyAppearance as write, reducedMotion } from "../core/appearance.js";
 import { action, onKey } from "./dispatch.js";
 
 const LIMITS = { nav: [220, 460, 300], insp: [240, 460, 300], debug: [120, 640, 240] };
 const app = () => document.getElementById("app");
 
-export function applyTheme() {
-  const root = document.documentElement;
-  if (prefs.theme === "light" || prefs.theme === "dark") root.dataset.theme = prefs.theme;
-  else delete root.dataset.theme;
+const systemMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+/** Puts the appearance preferences (theme, accent, text size, reduced motion) on <html>; views sized in px listen for the event. */
+export function applyAppearance() {
+  write(document.documentElement, prefs, systemMotion.matches);
+  window.dispatchEvent(new Event("mobilelab:appearance"));
 }
+
+/** Whether motion is reduced right now: the Settings override, else the operating system. */
+export const motionReduced = () => reducedMotion(prefs.reduceMotion, systemMotion.matches);
 
 function effectiveWidth(kind) {
   const [min, max] = LIMITS[kind];
@@ -172,7 +178,8 @@ export function initShell() {
   installSprite(document.getElementById("sprite"));
   const overlay = document.getElementById("overlay");
   overlay.innerHTML = '<div id="sheet-layer"></div><div id="menu-layer"></div>';
-  applyTheme();
+  applyAppearance();
+  systemMotion.addEventListener("change", () => { if (prefs.reduceMotion === null) { applyAppearance(); invalidate("overlay"); } });
 
   const query = window.matchMedia("(max-width: 899px)");
   const sync = () => {

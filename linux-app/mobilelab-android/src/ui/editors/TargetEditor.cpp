@@ -44,6 +44,7 @@ TargetEditor::TargetEditor(const AppContext &ctx, QWidget *parent) : QWidget(par
     connect(&m_timer, &QTimer::timeout, this, &TargetEditor::captureNow);
     connect(&Theme::instance(), &Theme::changed, this, [this] { update(); });
     connect(&Theme::instance(), &Theme::motionChanged, this, [this] { update(); });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { placeChildren(); update(); });
 }
 
 void TargetEditor::showTarget(const QString &id) {
@@ -139,7 +140,10 @@ void TargetEditor::placeChildren() {
     m_bar->setGeometry((width() - bs.width()) / 2, height() - bs.height() - 8, bs.width(), bs.height());
     const QRectF fr = frameRect();
     const QSize ps = m_boot->sizeHint();
-    m_boot->setGeometry(int(fr.center().x() - ps.width() / 2), int(fr.center().y() + 20), ps.width(), ps.height());
+    // Below the explanation in the frame, which wraps onto more lines as the text grows.
+    const QFontMetrics fm(Theme::instance().ui(12));
+    const int reasonH = fm.boundingRect(QRect(0, 0, int(fr.width()) - 52, 1000), Qt::AlignHCenter | Qt::TextWordWrap, m_reason).height();
+    m_boot->setGeometry(int(fr.center().x() - ps.width() / 2), qMax(int(fr.center().y()) + 20, int(fr.center().y()) - 18 + reasonH + 10), ps.width(), ps.height());
 }
 
 QRectF TargetEditor::frameRect() const {
@@ -184,7 +188,7 @@ void TargetEditor::paintEvent(QPaintEvent *) {
         p.drawText(tr, Qt::AlignCenter, head);
         p.setFont(Theme::instance().ui(12));
         p.setPen(t.textTertiary);
-        p.drawText(QRectF(screen.left() + 18, screen.center().y() - 18, screen.width() - 36, 64), Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, m_reason);
+        p.drawText(QRectF(screen.left() + 18, screen.center().y() - 18, screen.width() - 36, Theme::scaled(64)), Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, m_reason);
         if (m_inflight) {
             p.drawText(QRectF(screen.left() + 18, screen.bottom() - 60, screen.width() - 36, 20), Qt::AlignCenter, "Capturing...");
         }
@@ -199,6 +203,6 @@ void TargetEditor::paintEvent(QPaintEvent *) {
         p.setFont(Theme::instance().ui(12));
         p.setPen(t.textSecondary);
         const QString cap = QString("%1   |   API %2   |   %3   |   %4").arg(tg->id, tg->api, tg->arch, stateText());
-        p.drawText(QRectF(10, fr.bottom() + 10, width() - 20, 18), Qt::AlignHCenter | Qt::AlignVCenter, QFontMetrics(p.font()).elidedText(cap, Qt::ElideRight, width() - 30));
+        p.drawText(QRectF(10, fr.bottom() + 10, width() - 20, Theme::scaled(18)), Qt::AlignHCenter | Qt::AlignVCenter, QFontMetrics(p.font()).elidedText(cap, Qt::ElideRight, width() - 30));
     }
 }

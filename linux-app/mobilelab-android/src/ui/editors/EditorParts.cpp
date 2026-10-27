@@ -7,7 +7,7 @@
 #include "glass/Glass.h"
 
 ThemedLabel::ThemedLabel(const QString &text, qreal px, QFont::Weight w, Role r, QWidget *parent, bool mono) : QLabel(text, parent), m_role(r) {
-    setFont(mono ? Theme::instance().mono(px, w) : Theme::instance().ui(px, w));
+    Ui::bindFont(this, px, w, mono);
     setTextInteractionFlags(Qt::TextSelectableByMouse);
     setCursor(Qt::ArrowCursor);
     applyPalette();
@@ -42,12 +42,12 @@ PillButton::PillButton(const QString &text, Style s, QWidget *parent, const QStr
     setText(text);
     setFocusPolicy(Qt::StrongFocus);
     setAccessibleName(text);
-    setFont(Theme::instance().ui(12, QFont::Medium));
+    Ui::bindFont(this, 12, QFont::Medium);
 }
 
 QSize PillButton::sizeHint() const {
     const QFontMetrics fm(Theme::instance().ui(12, QFont::Medium));
-    return QSize(fm.horizontalAdvance(text()) + 26 + (m_icon.isEmpty() ? 0 : 20), 26);
+    return QSize(fm.horizontalAdvance(text()) + 26 + (m_icon.isEmpty() ? 0 : 20), Theme::scaled(26));
 }
 
 void PillButton::focusInEvent(QFocusEvent *e) {
@@ -143,10 +143,10 @@ void RowButton::paintEvent(QPaintEvent *) {
     if (m_sub.isEmpty()) {
         p.drawText(QRect(x, 0, right - x, height()), Qt::AlignVCenter | Qt::AlignLeft, fm.elidedText(m_title, Qt::ElideRight, right - x));
     } else {
-        p.drawText(QRect(x, 3, right - x, 18), Qt::AlignVCenter | Qt::AlignLeft, fm.elidedText(m_title, Qt::ElideRight, right - x));
+        p.drawText(QRect(x, 3, right - x, Theme::scaled(18)), Qt::AlignVCenter | Qt::AlignLeft, fm.elidedText(m_title, Qt::ElideRight, right - x));
         p.setFont(Theme::instance().ui(12));
         p.setPen(t.textSecondary);
-        p.drawText(QRect(x, 21, right - x, 16), Qt::AlignVCenter | Qt::AlignLeft, QFontMetrics(p.font()).elidedText(m_sub, Qt::ElideRight, right - x));
+        p.drawText(QRect(x, 3 + Theme::scaled(18), right - x, Theme::scaled(16)), Qt::AlignVCenter | Qt::AlignLeft, QFontMetrics(p.font()).elidedText(m_sub, Qt::ElideRight, right - x));
     }
     if (m_kb && hasFocus()) Ui::drawFocusRing(&p, r, 6);
 }

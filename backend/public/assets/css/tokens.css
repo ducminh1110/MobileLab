@@ -20,7 +20,7 @@
   --text: light-dark(#1d1d1f, #ececee);
   --text-secondary: light-dark(#6c6c72, #a0a0a8);
   --text-tertiary: light-dark(#a1a1a8, #6f6f78);
-  --accent: light-dark(#0a7aff, #0a84ff);
+  --accent: var(--accent-blue);
   --accent-text: #ffffff;
   --selection: light-dark(#dcdde1, #3c3c42);
   --selection-focused: var(--accent);
@@ -67,7 +67,31 @@
 
   --font-ui: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+
+  /* accent colours (Settings > General > Accent Color), same table as core/appearance.js; white text on each is at least 3:1 */
+  --accent-blue: light-dark(#0a7aff, #0a84ff);
+  --accent-purple: light-dark(#8944ab, #bf5af2);
+  --accent-pink: light-dark(#d6336c, #ff375f);
+  --accent-red: light-dark(#d92d20, #ff453a);
+  --accent-orange: light-dark(#c2570c, #e96f0a);
+  --accent-green: light-dark(#248a3d, #26a644);
+  --accent-graphite: light-dark(#6b6b70, #8e8e93);
+
+  /* text size (Settings > General > Text Size): appearance.js writes --ts on <html>; font sizes, line heights and the
+     rows that hold text multiply by it, so 1 is the designed density. Heights are rounded to whole pixels. */
+  --ts: 1;
+  --row-h: round(22px * var(--ts), 1px);
+  --log-row: round(17px * var(--ts), 1px);
 }
 
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
+
+/* html[data-accent] picks the accent; the swatches in Settings carry the same attribute to show their own colour */
+[data-accent="blue"] { --accent: var(--accent-blue); }
+[data-accent="purple"] { --accent: var(--accent-purple); }
+[data-accent="pink"] { --accent: var(--accent-pink); }
+[data-accent="red"] { --accent: var(--accent-red); }
+[data-accent="orange"] { --accent: var(--accent-orange); }
+[data-accent="green"] { --accent: var(--accent-green); }
+[data-accent="graphite"] { --accent: var(--accent-graphite); }

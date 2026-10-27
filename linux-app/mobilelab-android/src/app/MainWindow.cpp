@@ -54,8 +54,8 @@ public:
         m_error = error;
         setAccessibleDescription(text);
         const QFontMetrics fm(Theme::instance().ui(12, QFont::Medium));
-        const int w = qMin(560, fm.horizontalAdvance(text) + 56 + 2 * shadowMargin());
-        resize(w, 34 + 2 * shadowMargin());
+        const int w = qMin(Theme::scaled(560), fm.horizontalAdvance(text) + 56 + 2 * shadowMargin());
+        resize(w, Metrics::capsuleHeight() + 2 * shadowMargin());
         reposition();
         raise();
         QWidget::show();
@@ -66,7 +66,7 @@ public:
     /// used to cover) and clear of the toolbar and jump bar at the top.
     void reposition() {
         if (!parentWidget()) return;
-        move((parentWidget()->width() - width()) / 2, parentWidget()->height() - height() - 104);
+        move((parentWidget()->width() - width()) / 2, parentWidget()->height() - height() - Theme::scaled(104));
     }
     void paintContent(QPainter &p, const QRect &shape) override {
         Icons::paint(&p, m_error ? "exclamationmark.triangle" : "checkmark.diamond.fill", QRectF(shape.left() + 12, shape.center().y() - 8, 16, 16), m_error ? tk().warn : tk().pass);
@@ -144,6 +144,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     connect(&Theme::instance(), &Theme::changed, this, [this] { update(); scheduleSave(); });
     connect(&Glass::Settings::instance(), &Glass::Settings::levelChanged, this, [this] { scheduleSave(); });
     connect(&Theme::instance(), &Theme::motionChanged, this, [this] { scheduleSave(); });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { m_editorPanes->setCollapsedSize(m_dbgId, Metrics::debugBar()); });
     m_ctx.activity->add("app", QString("MobileLab Android %1 started").arg(MOBILELAB_VERSION));
 }
 
@@ -336,6 +337,10 @@ void MainWindow::createMenus() {
         grp->addAction(a);
         connect(a, &QAction::triggered, this, [i] { Theme::instance().setMode(Theme::Mode(i)); });
     }
+    connect(&Theme::instance(), &Theme::changed, appearance, [appearance] {
+        const auto acts = appearance->actions();
+        for (int i = 0; i < acts.size(); ++i) acts[i]->setChecked(int(Theme::instance().mode()) == i);
+    });
     view->addMenu(appearance);
     auto *glassMenu = new GlassMenu("Liquid Glass", this);
     auto *ggrp = new QActionGroup(this);
@@ -507,7 +512,7 @@ void MainWindow::createUi() {
     dspec.minSize = 120;
     dspec.maxSize = 640;
     dspec.defaultSize = 240;
-    dspec.collapsedSize = Metrics::debugBar;
+    dspec.collapsedSize = Metrics::debugBar();
     dspec.snap = 44;
     dspec.name = "Debug area";
     m_dbgId = m_editorPanes->addPane(PaneHost::Side::Trailing, m_debug, dspec);

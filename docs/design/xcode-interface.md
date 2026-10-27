@@ -326,3 +326,12 @@ A **Connect Mac...** sheet (entry points: Devices navigator footer `+`, destinat
 MobileLab remote server on the Mac by itself and sets up remote work, with a step list and live output in the
 console. It is not built yet: the full concept (flow, security requirements, architecture, API) is in
 [`remote-mac.md`](remote-mac.md).
+
+## Appearance settings
+
+Settings > General offers, in both the web dashboard and the Linux app: appearance (System, Light, Dark), accent
+colour (Blue, Purple, Pink, Red, Orange, Green, Graphite), text size (Small 0.92, Default 1.0, Large 1.1, Larger
+1.2), Liquid Glass level, reduced motion and Reset Appearance. The accent replaces `--accent` (and what derives from
+it); pass, fail, warn and syntax colours never change. Every accent keeps white text at 3:1 or better in both
+appearances, and tests assert it. Default text size is the layout described above. Reduced motion follows the
+operating system until the user sets it, and Reset Appearance returns it to following the system.

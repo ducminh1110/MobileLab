@@ -9,7 +9,7 @@
 #include "UiUtil.h"
 
 JumpBar::JumpBar(QAction *back, QAction *forward, QAction *related, QAction *options, QAction *add, QWidget *parent) : QWidget(parent) {
-    setFixedHeight(Metrics::jumpBarHeight + 6);
+    setFixedHeight(Metrics::jumpBarHeight() + 6);
     setAttribute(Qt::WA_NoSystemBackground, true);
     setMouseTracking(true);
     setFocusPolicy(Qt::TabFocus);
@@ -37,6 +37,10 @@ JumpBar::JumpBar(QAction *back, QAction *forward, QAction *related, QAction *opt
         m_grid->setTint(tk().textTertiary);
         for (auto *b : m_trail->buttons()) b->setTint(tk().textSecondary);
         update();
+    });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] {
+        setFixedHeight(Metrics::jumpBarHeight() + 6);
+        relayout();
     });
 }
 
@@ -71,19 +75,21 @@ QVector<JumpBar::Slot> JumpBar::layoutCrumbs() const {
         total += w.last() + 14;
     }
     total -= 14;
-    // shrink the widest crumbs first, keep the last visible
-    while (total > avail) {
-        int widest = -1;
-        for (int i = 0; i < w.size(); ++i)
-            if (w[i] > 60 && (widest < 0 || w[i] > w[widest])) widest = i;
-        if (widest < 0) break;
-        const int cut = qMin(w[widest] - 60, total - avail);
-        w[widest] -= cut;
-        total -= cut;
+    // shrink the widest crumbs first, keep the last visible; a narrow bar (or large text) goes down to an icon and an ellipsis
+    for (const int floor : {60, 30}) {
+        while (total > avail) {
+            int widest = -1;
+            for (int i = 0; i < w.size(); ++i)
+                if (w[i] > floor && (widest < 0 || w[i] > w[widest])) widest = i;
+            if (widest < 0) break;
+            const int cut = qMin(w[widest] - floor, total - avail);
+            w[widest] -= cut;
+            total -= cut;
+        }
     }
     int x = m_left;
     for (int i = 0; i < m_crumbs.size(); ++i) {
-        rects.push_back({QRect(x, (height() - 22) / 2, w[i], 22), i});
+        rects.push_back({QRect(x, (height() - Theme::scaled(22)) / 2, w[i], Theme::scaled(22)), i});
         x += w[i] + 14;
     }
     return rects;

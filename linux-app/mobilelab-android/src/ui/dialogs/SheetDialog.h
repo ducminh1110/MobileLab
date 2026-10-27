@@ -4,6 +4,8 @@
 #include <QImage>
 #include <QVBoxLayout>
 
+class QScrollArea;
+
 class SheetDialog : public QDialog {
     Q_OBJECT
 public:
@@ -13,6 +15,8 @@ public:
     static constexpr int kShadow = 20;
     // Re-centres over the parent window (top aligned like an Xcode sheet).
     void place();
+    // A transparent scroll area around a sheet page, for pages that outgrow the sheet at larger text sizes.
+    static QScrollArea *scrolling(QWidget *page, QWidget *parent);
     // Sheets are shown without exec() by the screenshot driver.
     QImage grabSheet();
 
@@ -23,6 +27,7 @@ protected:
     void keyPressEvent(QKeyEvent *e) override;
 
 private:
+    void fit();
     QString m_title;
     QVBoxLayout *m_body;
     QImage m_material;

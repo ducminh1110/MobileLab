@@ -28,7 +28,7 @@ public:
     NavTree *variables() const { return m_vars; }
     LogView *console() const { return m_console; }
     QSplitter *splitter() const { return m_split; }
-    int barHeight() const { return Metrics::debugBar; }
+    int barHeight() const { return Metrics::debugBar(); }
     bool consoleVisible() const { return m_console->isVisibleTo(this); }
     void refreshVariables();
     void rebuildConsole();
@@ -38,6 +38,7 @@ protected:
     void paintEvent(QPaintEvent *) override;
 
 private:
+    void applyMetrics();
     void relayout();
     void applyFilter();
     void syncFooter();

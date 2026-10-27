@@ -17,6 +17,7 @@ Capsule::Capsule(QWidget *parent) : GlassPanel(parent) {
     m_spin.setInterval(50);
     connect(&m_spin, &QTimer::timeout, this, [this] { update(); });
     connect(&Theme::instance(), &Theme::motionChanged, this, &Capsule::updateSpinner);
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { updateGeometry(); });
     m_clock.start();
 }
 
@@ -50,7 +51,7 @@ Capsule::Layout Capsule::computeLayout(const QRect &shape) const {
     Layout L;
     const QFont fMed = Theme::instance().ui(12, QFont::Medium), fSemi = Theme::instance().ui(12, QFont::DemiBold), fReg = Theme::instance().ui(12);
     const QFontMetrics mMed(fMed), mSemi(fSemi), mReg(fReg);
-    const int h = 26, y = shape.center().y() - h / 2 + 1;
+    const int h = Theme::scaled(26), y = shape.center().y() - h / 2 + 1;
     int x = shape.left() + 8;
     // scheme: mark + name + chevron
     L.schemeText = m_state.scheme;
@@ -103,9 +104,9 @@ void Capsule::paintContent(QPainter &p, const QRect &shape) {
         if (m_hover == id || m_pressed == id) {
             p.setPen(Qt::NoPen);
             p.setBrush(m_pressed == id ? t.glassPressed : t.glassHover);
-            p.drawRoundedRect(QRectF(r).adjusted(0, 0, 0, 0), 13, 13);
+            p.drawRoundedRect(QRectF(r), r.height() / 2.0, r.height() / 2.0);
         }
-        if (m_focus == id && hasFocus()) Ui::drawFocusRing(&p, QRectF(r), 13);
+        if (m_focus == id && hasFocus()) Ui::drawFocusRing(&p, QRectF(r), r.height() / 2.0);
     };
     hoverBg(L.scheme, Scheme);
     hoverBg(L.destination, Destination);

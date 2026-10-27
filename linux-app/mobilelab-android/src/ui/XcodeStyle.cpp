@@ -76,6 +76,9 @@ void XcodeStyle::drawPrimitive(PrimitiveElement e, const QStyleOption *o, QPaint
     switch (e) {
     case PE_FrameFocusRect:
         return;   // widgets draw their own rings
+    case PE_PanelItemViewRow:
+        if (o->state & State_Selected) return;   // NavTree paints the selection itself; Qt would fill the indentation with the accent
+        break;
     case PE_PanelMenu:
         if (w && w->property("glassMenu").toBool()) return;   // GlassMenu paints the material itself
         p->save();
@@ -317,7 +320,7 @@ QSize XcodeStyle::sizeFromContents(ContentsType type, const QStyleOption *o, con
             if (tab >= 0) wdt += 24 + fs.horizontalAdvance(text.mid(tab + 1));
             if (!mi->icon.isNull()) wdt += 22;
             if (mi->menuItemType == QStyleOptionMenuItem::SubMenu) wdt += 14;
-            return QSize(qMax(wdt, 180), 24);
+            return QSize(qMax(wdt, 180), Theme::scaled(24));
         }
     }
     if (type == CT_MenuBarItem) {
@@ -325,11 +328,11 @@ QSize XcodeStyle::sizeFromContents(ContentsType type, const QStyleOption *o, con
         const auto *mi = qstyleoption_cast<const QStyleOptionMenuItem *>(o);
         QString text = mi ? mi->text : QString();
         text.remove('&');
-        return QSize(fm.horizontalAdvance(text) + 18, 24);
+        return QSize(fm.horizontalAdvance(text) + 18, Theme::scaled(24));
     }
     if (type == CT_PushButton) {
         QSize sz = QProxyStyle::sizeFromContents(type, o, s, w);
-        return QSize(sz.width() + 8, qMax(26, sz.height()));
+        return QSize(sz.width() + 8, qMax(Theme::scaled(26), sz.height()));
     }
     return QProxyStyle::sizeFromContents(type, o, s, w);
 }

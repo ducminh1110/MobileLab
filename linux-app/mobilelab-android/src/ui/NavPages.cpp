@@ -98,6 +98,9 @@ NavPage::NavPage(const AppContext &ctx, QWidget *parent) : QWidget(parent), m_ct
     connect(m_tree, &NavTree::previewRequested, this, &NavPage::previewRequested);
     connect(m_filter, &FilterBar::textChanged, m_tree, &NavTree::setFilterText);
     connect(&Theme::instance(), &Theme::changed, this, [this] { refresh(); });
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] {
+        if (m_bottom) m_bottom->setFixedHeight(Metrics::filterBar() + 8);
+    });
 }
 
 void NavPage::buildBottomBar(QWidget *leading) {
@@ -111,7 +114,7 @@ void NavPage::buildBottomBar(QWidget *leading) {
     h->setSpacing(4);
     if (leading) h->addWidget(leading);
     h->addWidget(m_filter, 1);
-    m_bottom->setFixedHeight(Metrics::filterBar + 8);
+    m_bottom->setFixedHeight(Metrics::filterBar() + 8);
     v->addWidget(m_bottom);
     setFocusProxy(m_tree);
 }
@@ -383,7 +386,7 @@ FindPage::FindPage(const AppContext &ctx, QWidget *parent) : NavPage(ctx, parent
     auto *row = new QHBoxLayout;
     row->setContentsMargins(4, 0, 4, 0);
     auto *scopeLabel = new QLabel("Scope", top);
-    scopeLabel->setFont(Theme::instance().ui(11, QFont::DemiBold));
+    Ui::bindFont(scopeLabel, 11, QFont::DemiBold);
     row->addWidget(scopeLabel);
     m_scope = new PopupButton(top);
     m_scope->setFlat(true);
@@ -394,7 +397,7 @@ FindPage::FindPage(const AppContext &ctx, QWidget *parent) : NavPage(ctx, parent
     th->addLayout(row);
     v->addWidget(top);
     m_status = new QLabel(this);
-    m_status->setFont(Theme::instance().ui(11));
+    Ui::bindFont(m_status, 11);
     m_status->setContentsMargins(14, 2, 8, 4);
     v->addWidget(m_status);
     v->addWidget(m_tree, 1);
@@ -543,46 +546,47 @@ public:
         m_pause->setTint(tk().textSecondary);
         Ui::setTip(m_pause, "Pause sampling");
         connect(&Theme::instance(), &Theme::changed, this, [this] { m_info->setTint(tk().accent); m_pause->setTint(tk().textSecondary); update(); });
-        setFixedHeight(headerH + 7 * rowH + 6);
+        connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { applyHeight(7); });
+        applyHeight(7);
     }
     IconButton *infoButton() const { return m_info; }
     IconButton *pauseButton() const { return m_pause; }
     void setTitle(const QString &name, const QString &pid) { m_name = name; m_pid = pid; update(); }
     void setRows(const QVector<GaugeRowData> &r) {
-        if (r.size() != m_rows.size()) setFixedHeight(headerH + r.size() * rowH + 6);
+        if (r.size() != m_rows.size()) applyHeight(r.size());
         m_rows = r;
         update();
     }
-    static constexpr int headerH = 30, rowH = 34;
+    static int headerH() { return Theme::scaled(30); }
+    static int rowH() { return Theme::scaled(34); }
 
 protected:
-    void resizeEvent(QResizeEvent *) override {
-        m_pause->move(width() - 8 - 22, 4);
-        m_info->move(width() - 8 - 22 - 24, 4);
-    }
+    void resizeEvent(QResizeEvent *) override { placeButtons(); }
     void paintEvent(QPaintEvent *) override {
         if (Glass::suppressed()) return;
         const Tokens &t = tk();
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
-        Icons::paint(&p, "mobilelab.logo", QRectF(14, 7, 16, 16), t.accent);
+        const int headerH = GaugeColumn::headerH(), rowH = GaugeColumn::rowH();
+        Icons::paint(&p, "mobilelab.logo", QRectF(14, (headerH - 16) / 2, 16, 16), t.accent);
         p.setFont(Theme::instance().ui(13, QFont::DemiBold));
         p.setPen(t.text);
         p.drawText(QRect(36, 0, width() - 110, headerH), Qt::AlignVCenter | Qt::AlignLeft, m_name);
         const int nameW = QFontMetrics(p.font()).horizontalAdvance(m_name);
         p.setFont(Theme::instance().ui(12));
         p.setPen(t.textSecondary);
-        p.drawText(QRect(36 + nameW + 8, 0, 100, headerH), Qt::AlignVCenter | Qt::AlignLeft, m_pid);
+        const int pidX = 36 + nameW + 8, pidW = width() - 8 - 22 - 24 - 4 - pidX;   // up to the buttons
+        if (pidW > 20) p.drawText(QRect(pidX, 0, pidW, headerH), Qt::AlignVCenter | Qt::AlignLeft, QFontMetrics(p.font()).elidedText(m_pid, Qt::ElideRight, pidW));
         int y = headerH;
         for (const auto &r : m_rows) {
             p.setPen(Ui::withAlpha(t.text, 22));
             p.drawLine(14, y, width() - 14, y);
-            Icons::paint(&p, r.icon, QRectF(14, y + 6, 16, 16), t.textSecondary);
+            Icons::paint(&p, r.icon, QRectF(14, y + Theme::scaled(6), 16, 16), t.textSecondary);
             p.setFont(Theme::instance().ui(13));
             p.setPen(t.text);
-            p.drawText(QRect(36, y + 2, width() - 120, 22), Qt::AlignVCenter | Qt::AlignLeft, r.label);
+            p.drawText(QRect(36, y + 2, width() - 120, Theme::scaled(22)), Qt::AlignVCenter | Qt::AlignLeft, r.label);
             p.setPen(t.textSecondary);
-            p.drawText(QRect(width() - 8 - 130, y + 2, 122, 22), Qt::AlignVCenter | Qt::AlignRight, r.value);
+            p.drawText(QRect(width() - 8 - 130, y + 2, 122, Theme::scaled(22)), Qt::AlignVCenter | Qt::AlignRight, r.value);
             if (r.fraction >= 0) {
                 // recent samples as thin vertical bars under the label (the newest on the right), like the reference
                 p.setPen(Qt::NoPen);
@@ -592,7 +596,7 @@ protected:
                 for (int i = 0; i < n; ++i) {
                     const qreal v = qBound<qreal>(0.0, h[i], 1.0);
                     const qreal bh = qMax<qreal>(2.0, 9.0 * v);
-                    p.drawRect(QRectF(37 + i * 3.0, y + 31 - bh, 2, bh));
+                    p.drawRect(QRectF(37 + i * 3.0, y + Theme::scaled(31) - bh, 2, bh));
                 }
             }
             y += rowH;
@@ -601,7 +605,7 @@ protected:
     bool event(QEvent *e) override {
         if (e->type() == QEvent::ToolTip) {
             const auto *he = static_cast<QHelpEvent *>(e);
-            const int idx = (he->pos().y() - headerH) / rowH;
+            const int idx = (he->pos().y() - headerH()) / rowH();
             if (idx >= 0 && idx < m_rows.size() && !m_rows[idx].tip.isEmpty()) {
                 QToolTip::showText(he->globalPos(), m_rows[idx].tip, this);
                 return true;
@@ -611,6 +615,15 @@ protected:
     }
 
 private:
+    void applyHeight(int rows) {
+        setFixedHeight(headerH() + rows * rowH() + 6);
+        placeButtons();
+    }
+    void placeButtons() {
+        const int top = (headerH() - 22) / 2;
+        m_pause->move(width() - 8 - 22, top);
+        m_info->move(width() - 8 - 22 - 24, top);
+    }
     QVector<GaugeRowData> m_rows;
     QString m_name = "MobileLab Android", m_pid;
     IconButton *m_info, *m_pause;
@@ -627,7 +640,7 @@ DebugPage::DebugPage(const AppContext &ctx, QWidget *parent) : NavPage(ctx, pare
     auto *h = new QHBoxLayout(m_bottom);
     h->setContentsMargins(8, 0, 8, 6);
     h->addWidget(m_filter, 1);
-    m_bottom->setFixedHeight(Metrics::filterBar + 8);
+    m_bottom->setFixedHeight(Metrics::filterBar() + 8);
     v->addWidget(m_bottom);
     m_tree->setEmpty("cpu", "Nothing is running", "Queued and running matrix jobs appear here as threads.");
     m_tree->setAccessibleName("Debug navigator");

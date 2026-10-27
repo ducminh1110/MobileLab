@@ -1,11 +1,14 @@
 #pragma once
-// Small reusable widgets: filter bar, segmented control, popup button, empty state.
+// Small reusable widgets: filter bar, segmented control, popup button, swatch row, empty state.
 #include <QAbstractButton>
 #include <QLineEdit>
 #include <QStringList>
+#include <functional>
 #include "IconButton.h"
 #include "glass/Glass.h"
 
+class QButtonGroup;
+class QLabel;
 class QMenu;
 
 // Transparent line edit that lives on glass (filter bars) and hides while the backdrop is captured.
@@ -26,7 +29,7 @@ public:
     IconButton *addToggle(const QString &icon, const QString &tip, bool checked = false);
     void setPlaceholder(const QString &s) { m_edit->setPlaceholderText(s); }
     QString text() const { return m_edit->text(); }
-    QSize sizeHint() const override { return QSize(200, Metrics::filterBar); }
+    QSize sizeHint() const override { return QSize(200, Metrics::filterBar()); }
     void paintContent(QPainter &p, const QRect &shape) override;
 signals:
     void textChanged(const QString &);
@@ -80,6 +83,27 @@ private:
     QStringList m_items;
     int m_current = 0;
     bool m_flat = false;
+};
+
+// Round colour swatches that work as one radio group, with the name of the chosen colour beside them. The arrow
+// keys move the choice. `colorOf(i)` is asked at paint time, so the swatches follow light and dark.
+class SwatchRow : public QWidget {
+    Q_OBJECT
+public:
+    SwatchRow(const QStringList &names, std::function<QColor(int)> colorOf, const QString &groupName, QWidget *parent = nullptr);
+    int current() const;
+    void setCurrent(int i, bool emitSignal = false);
+    int count() const { return m_names.size(); }
+    QAbstractButton *swatch(int i) const;
+signals:
+    void currentChanged(int index);
+private:
+    friend class SwatchButton;
+    void step(int delta);
+    QStringList m_names;
+    QButtonGroup *m_group;
+    QLabel *m_name;
+    bool m_syncing = false;
 };
 
 // Centred explanation with one primary action, shown by trees and editors that have nothing to list.

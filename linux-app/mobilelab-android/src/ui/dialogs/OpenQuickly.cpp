@@ -108,11 +108,11 @@ OpenQuickly::OpenQuickly(const AppContext &ctx, QWidget *parent) : QDialog(paren
     v->setSpacing(6);
     m_edit = new QLineEdit(this);
     m_edit->setProperty("bare", true);
-    m_edit->setFont(Theme::instance().ui(17));
+    Ui::bindFont(m_edit, 17);
     m_edit->setPlaceholderText("Open Quickly");
     m_edit->setAccessibleName("Open Quickly search");
     m_edit->setFrame(false);
-    m_edit->setFixedHeight(34);
+    m_edit->setFixedHeight(Theme::scaled(34));
     m_edit->setTextMargins(24, 0, 0, 0);
     m_edit->installEventFilter(this);
     v->addWidget(m_edit);

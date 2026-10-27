@@ -13,8 +13,9 @@ import { cancelJob, rerunJob, retryFailed, screenshotDevice, regions } from "../
 import { action, field } from "./dispatch.js";
 import { openMenu } from "./menu.js";
 import { treeHtml } from "./tree.js";
+import { scaledPx, textScale } from "../core/appearance.js";
 
-const ROW = 17;
+const ROW = 17; // designed line height; ConsoleView.row is that at the current text size
 const OVERSCAN = 20;
 
 const VAR_MODES = [["auto", "Auto"], ["all", "All"], ["failures", "Failures"], ["running", "Running"]];
@@ -206,6 +207,7 @@ class ConsoleView {
     this.follow = true;
     this.raf = 0;
     this.lastKey = "";
+    this.row = scaledPx(ROW);
     this.provider = { count: 0, get: () => ({ text: "", cls: "" }), key: "" };
     host.innerHTML = `<div class="cv-scroll" tabindex="0" role="log" aria-label="Console" aria-live="off"><div class="cv-sizer"><div class="cv-rows"></div></div></div><div class="cv-empty" hidden></div>`;
     this.scroll = host.querySelector(".cv-scroll");
@@ -213,11 +215,25 @@ class ConsoleView {
     this.rows = host.querySelector(".cv-rows");
     this.empty = host.querySelector(".cv-empty");
     this.scroll.addEventListener("scroll", () => {
-      if (!this.programmatic) this.follow = this.scroll.scrollHeight - this.scroll.scrollTop - this.scroll.clientHeight < ROW * 1.5;
+      if (!this.programmatic) this.follow = this.scroll.scrollHeight - this.scroll.scrollTop - this.scroll.clientHeight < this.row * 1.5;
       this.schedule();
     }, { passive: true });
     this.ro = typeof ResizeObserver === "function" ? new ResizeObserver(() => this.schedule(true)) : null;
     this.ro?.observe(this.scroll);
+    window.addEventListener("mobilelab:appearance", () => this.restyle());
+  }
+
+  /** The text size changed: line height and glyph width follow it, and the view stays on the same line. */
+  restyle() {
+    const line = Math.floor(this.scroll.scrollTop / this.row);
+    this.row = scaledPx(ROW);
+    this.provider.key = "";
+    this.refresh();
+    if (!this.follow) {
+      this.programmatic = true;
+      this.scroll.scrollTop = line * this.row;
+      requestAnimationFrame(() => { this.programmatic = false; });
+    }
   }
 
   onModel() { this.refresh(); }
@@ -227,10 +243,10 @@ class ConsoleView {
     const changed = p.key !== this.provider.key;
     this.provider = p;
     if (!changed) return;
-    this.sizer.style.height = `${p.count * ROW + 8}px`;
+    this.sizer.style.height = `${p.count * this.row + 8}px`;
     let max = 0;
     if (p.model) max = Math.min(600, p.model.maxLen);
-    this.sizer.style.width = `${Math.max(200, Math.ceil(max * 7.2) + 40)}px`;
+    this.sizer.style.width = `${Math.max(200, Math.ceil(max * 7.2 * textScale()) + 40)}px`;
     this.emptyState(p);
     if (this.follow) this.toEnd();
     this.schedule(true);
@@ -264,8 +280,8 @@ class ConsoleView {
     const p = this.provider;
     const top = this.scroll.scrollTop;
     const height = this.scroll.clientHeight || 200;
-    const first = Math.max(0, Math.floor(top / ROW) - OVERSCAN);
-    const last = Math.min(p.count, Math.ceil((top + height) / ROW) + OVERSCAN);
+    const first = Math.max(0, Math.floor(top / this.row) - OVERSCAN);
+    const last = Math.min(p.count, Math.ceil((top + height) / this.row) + OVERSCAN);
     const key = `${first}:${last}:${p.key}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
@@ -274,7 +290,7 @@ class ConsoleView {
       const { text, cls } = p.get(i);
       out += `<div class="cl${cls ? " " + cls : ""}">${esc(text.length > 3000 ? text.slice(0, 3000) + "…" : text) || "&nbsp;"}</div>`;
     }
-    this.rows.style.transform = `translateY(${first * ROW}px)`;
+    this.rows.style.transform = `translateY(${first * this.row}px)`;
     this.rows.innerHTML = out;
   }
 

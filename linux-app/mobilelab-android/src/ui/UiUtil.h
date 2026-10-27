@@ -19,6 +19,8 @@ QString shortcutText(const QKeySequence &seq);
 QColor withAlpha(const QColor &c, int alpha);
 QColor mix(const QColor &a, const QColor &b, qreal t);
 inline bool motionAllowed() { return !Theme::instance().reducedMotion(); }
+// Sets `w`'s font now and again whenever the text size changes.
+void bindFont(QWidget *w, qreal px, QFont::Weight weight = QFont::Normal, bool mono = false);
 // Runs `cb(value)` for value from..to, or immediately with `to` when motion is reduced. Parented to `parent`.
 QVariantAnimation *animate(QObject *parent, qreal from, qreal to, int ms, std::function<void(qreal)> cb,
                            QEasingCurve::Type curve = QEasingCurve::InOutCubic, std::function<void()> done = {});

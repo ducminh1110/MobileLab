@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(MobileLabAndroid VERSION 0.7.0 LANGUAGES CXX)
+project(MobileLabAndroid VERSION 4.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)

@@ -47,7 +47,7 @@ public:
     void setLeftBar(const QColor &c) { m_bar = c; update(); }
     void setPlainRow(bool plain) { m_plain = plain; setFocusPolicy(plain ? Qt::NoFocus : Qt::StrongFocus); }
     void setTitle(const QString &t) { m_title = t; update(); }
-    QSize sizeHint() const override { return QSize(300, m_sub.isEmpty() ? 26 : 40); }
+    QSize sizeHint() const override { return QSize(300, Theme::scaled(m_sub.isEmpty() ? 26 : 40)); }
 protected:
     void paintEvent(QPaintEvent *) override;
     void enterEvent(QEnterEvent *) override { m_hover = true; update(); }

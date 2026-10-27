@@ -44,6 +44,8 @@ on purpose so existing setups keep working. It is the same project.
 
 All of them follow the layout of Xcode 26 (navigator, editor, inspector, debug area, scheme capsule,
 Open Quickly) with the Inter typeface, light and dark, and a Liquid Glass look drawn by the project itself.
+Settings > General lets you tune it: appearance, accent colour (seven presets), text size, Liquid Glass level,
+reduced motion, and a button that resets all of it.
 
 | | |
 | --- | --- |
@@ -53,6 +55,8 @@ Open Quickly) with the Inter typeface, light and dark, and a Liquid Glass look d
 | Linux app (Qt 6): Android matrix in progress | Linux app: report with the failing ABI check |
 | <img src="docs/screenshots/web-open-quickly-light.png" alt="Open Quickly in the web dashboard"> | <img src="docs/screenshots/linux-open-quickly-dark.png" alt="Open Quickly in the Linux app"> |
 | Open Quickly (Cmd/Ctrl+Shift+O) in the web dashboard | The same in the Linux app |
+| <img src="docs/screenshots/web-appearance.png" alt="Appearance settings in the web dashboard"> | <img src="docs/screenshots/linux-appearance.png" alt="Appearance settings in the Linux app"> |
+| Appearance settings in the web dashboard | The same in the Linux app |
 
 ## Get started
 

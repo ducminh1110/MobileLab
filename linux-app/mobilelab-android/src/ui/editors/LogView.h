@@ -59,6 +59,7 @@ private:
     int lineAtY(int y) const;
     int rowHeight() const;
     int charWidth() const;
+    QFont monoFont(QFont::Weight w) const;
     void updateRange();
     void placePill();
     void goto_(int line, bool extend);

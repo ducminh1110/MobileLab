@@ -18,7 +18,7 @@ public:
         setFocusPolicy(Qt::StrongFocus);
         setAccessibleName(title);
         setAccessibleDescription(sub);
-        setFixedHeight(58);
+        setFixedHeight(Theme::scaled(58));
         setMinimumWidth(320);
     }
 protected:
@@ -34,14 +34,16 @@ protected:
         }
         p.setPen(Qt::NoPen);
         p.setBrush(Ui::withAlpha(t.accent, t.dark ? 46 : 28));
-        p.drawRoundedRect(QRectF(12, 11, 36, 36), 9, 9);
-        Icons::paint(&p, m_icon, QRectF(20, 19, 20, 20), t.accent);
+        const int tileY = (height() - 36) / 2, titleH = Theme::scaled(20), subH = Theme::scaled(18);
+        p.drawRoundedRect(QRectF(12, tileY, 36, 36), 9, 9);
+        Icons::paint(&p, m_icon, QRectF(20, tileY + 8, 20, 20), t.accent);
+        const int textY = (height() - titleH - subH) / 2;
         p.setFont(Theme::instance().ui(13, QFont::DemiBold));
         p.setPen(t.text);
-        p.drawText(QRect(62, 10, width() - 72, 20), Qt::AlignVCenter | Qt::AlignLeft, m_title);
+        p.drawText(QRect(62, textY, width() - 72, titleH), Qt::AlignVCenter | Qt::AlignLeft, m_title);
         p.setFont(Theme::instance().ui(12));
         p.setPen(t.textSecondary);
-        p.drawText(QRect(62, 30, width() - 72, 18), Qt::AlignVCenter | Qt::AlignLeft, QFontMetrics(p.font()).elidedText(m_sub, Qt::ElideRight, width() - 74));
+        p.drawText(QRect(62, textY + titleH, width() - 72, subH), Qt::AlignVCenter | Qt::AlignLeft, QFontMetrics(p.font()).elidedText(m_sub, Qt::ElideRight, width() - 74));
         if (hasFocus()) Ui::drawFocusRing(&p, r, 10);
     }
     void keyPressEvent(QKeyEvent *e) override {

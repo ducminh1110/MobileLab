@@ -8,11 +8,12 @@ import { patch } from "../core/morph.js";
 import { api, ApiError, token } from "../core/api.js";
 import { state, prefs, setPref, invalidate, onRender } from "../core/state.js";
 import { glassMode, setGlassMode } from "../core/glass.js";
+import { ACCENTS, APPEARANCE_DEFAULTS, TEXT_SIZES, accentById, sanitizeAppearance } from "../core/appearance.js";
 import { commands, hooks, saveScheme, deleteScheme, spawnSimulator, runScheme, runCleanup, chooseScheme } from "../core/actions.js";
 import { ensureCatalog, loadDoctor, start } from "../core/sync.js";
 import { schemeConfig, schemeNames, currentScheme, compareVersionsDesc, modelLabel } from "../core/models.js";
 import { notify } from "../core/notify.js";
-import { applyTheme } from "./shell.js";
+import { applyAppearance, motionReduced } from "./shell.js";
 import { action, field } from "./dispatch.js";
 import { openMenu } from "./menu.js";
 
@@ -225,13 +226,22 @@ function generalPane(sheet) {
     <div class="frow"><span class="flabel">Appearance</span><div class="fctl"><div class="segmented" role="radiogroup" aria-label="Appearance">
       ${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([id, label]) => html`<button type="button" role="radio" aria-checked="${prefs.theme === id ? "true" : "false"}" aria-pressed="${prefs.theme === id ? "true" : "false"}" data-action="theme" data-arg="${id}">${label}</button>`)}
     </div><p class="fhint">System follows your operating system’s appearance.</p></div></div>
+    <div class="frow"><span class="flabel">Accent Color</span><div class="fctl"><div class="fctl-row"><div class="swatches" role="radiogroup" aria-label="Accent Color">
+      ${ACCENTS.map((a) => html`<button type="button" role="radio" class="swatch" data-accent="${a.id}" aria-checked="${prefs.accent === a.id ? "true" : "false"}" aria-label="${a.label}" title="${a.label}" data-action="accent" data-arg="${a.id}">${icon("checkmark", "ic-12")}</button>`)}
+    </div><span class="swatch-name">${accentById(prefs.accent).label}</span></div><p class="fhint">Used for selection, buttons, links and progress. Pass, fail and warning colors stay the same.</p></div></div>
+    <div class="frow"><span class="flabel">Text Size</span><div class="fctl"><div class="segmented" role="radiogroup" aria-label="Text Size">
+      ${TEXT_SIZES.map((t) => html`<button type="button" role="radio" aria-checked="${prefs.textSize === t.id ? "true" : "false"}" aria-pressed="${prefs.textSize === t.id ? "true" : "false"}" data-action="text-size" data-arg="${t.id}">${t.label}</button>`)}
+    </div><p class="fhint">Scales interface text and the rows that hold it, logs and code included.</p></div></div>
     <div class="frow"><span class="flabel">Liquid Glass</span><div class="fctl"><div class="segmented" role="radiogroup" aria-label="Liquid Glass">
       ${[["on", "On"], ["reduced", "Reduced"]].map(([id, label]) => html`<button type="button" role="radio" aria-checked="${prefs.glass === id ? "true" : "false"}" aria-pressed="${prefs.glass === id ? "true" : "false"}" data-action="glass-mode" data-arg="${id}">${label}</button>`)}
     </div><p class="fhint">${prefs.glass === "reduced" ? "Reduced replaces the translucent material with opaque surfaces, like Reduce Transparency on macOS." : `Translucent, refracting controls (${glassLevelText()}). Follows Reduce Transparency and increased contrast automatically.`}</p></div></div>
+    <div class="frow"><span class="flabel">Motion</span><div class="fctl"><label class="check"><input type="checkbox" data-action="reduce-motion" ${motionReduced() ? raw("checked") : ""}> Reduce motion</label>
+      <p class="fhint">Removes animations and transitions; progress spinners keep turning, slowly. ${prefs.reduceMotion === null ? "Follows your operating system until you change it here." : "Overrides your operating system’s setting."}</p></div></div>
+    <div class="frow"><span class="flabel"></span><div class="fctl"><button type="button" class="btn" data-action="reset-appearance">Reset Appearance</button><p class="fhint">Appearance, accent color, text size, motion and Liquid Glass return to their defaults. Panel sizes and the API token are kept.</p></div></div>
     <div class="fsep"></div>
     <div class="frow"><span class="flabel">API URL</span><div class="fctl"><code class="fvalue">${location.origin}</code><p class="fhint">The dashboard talks to the backend that served it.</p></div></div>
     <div class="frow"><label class="flabel" for="sf-token">API Token</label><div class="fctl">
-      <div class="fctl-row"><input class="field field-mono" id="sf-token" type="password" data-scope="sheet" data-field="token" data-key="sf-token" value="${sheet.form.token}" placeholder="${token.get() ? "A token is stored in this browser" : c?.auth?.required ? "Required by this backend" : "Not required by this backend"}" autocomplete="off" spellcheck="false">
+      <div class="fctl-row"><input class="field field-mono" id="sf-token" type="password" data-scope="sheet" data-field="token" data-key="sf-token" data-autofocus value="${sheet.form.token}" placeholder="${token.get() ? "A token is stored in this browser" : c?.auth?.required ? "Required by this backend" : "Not required by this backend"}" autocomplete="off" spellcheck="false">
         <button type="button" class="btn" data-action="token-save" ${sheet.form.token.trim() ? "" : raw("disabled")}>Save</button>
         <button type="button" class="btn" data-action="token-forget" ${token.get() ? "" : raw("disabled")}>Forget</button></div>
       <p class="fhint">Stored in this browser only and sent as a bearer header, never in the address bar.</p></div></div>
@@ -335,6 +345,13 @@ registerSheet("shortcuts", {
 
 // ---------------------------------------------------------------- wiring
 
+/** Stores one appearance choice (an unknown value falls back to the default) and applies it right away. */
+function setAppearance(key, value) {
+  setPref(key, sanitizeAppearance({ [key]: value })[key]);
+  applyAppearance();
+  invalidate("overlay");
+}
+
 export function initSheets() {
   hooks.sheet = openSheet;
 
@@ -417,8 +434,18 @@ export function initSheets() {
     if (el.dataset.arg === "storage") void refreshMetrics();
     invalidate("overlay");
   });
-  action("theme", ({ el }) => { setPref("theme", el.dataset.arg); applyTheme(); invalidate("overlay"); });
+  action("theme", ({ el }) => setAppearance("theme", el.dataset.arg));
+  action("accent", ({ el }) => setAppearance("accent", el.dataset.arg));
+  action("text-size", ({ el }) => setAppearance("textSize", el.dataset.arg));
+  action("reduce-motion", ({ el }) => setAppearance("reduceMotion", el.checked));
   action("glass-mode", ({ el }) => { setPref("glass", el.dataset.arg === "reduced" ? "reduced" : "on"); setGlassMode(prefs.glass); invalidate("overlay"); });
+  action("reset-appearance", () => {
+    for (const [key, value] of Object.entries(APPEARANCE_DEFAULTS)) setPref(key, value);
+    setGlassMode(prefs.glass);
+    applyAppearance();
+    invalidate("overlay");
+    notify("Appearance reset.");
+  });
   action("reset-layout", () => { setPref("navW", 300); setPref("inspW", 300); setPref("debugH", 240); invalidate("shell"); notify("Panel sizes reset."); });
   action("doctor-run", () => void loadDoctor());
   action("cleanup-run", async () => {
@@ -497,6 +524,18 @@ export function initSheets() {
       const primary = root.querySelector("[data-default]:not([disabled])");
       if (primary) { event.preventDefault(); primary.click(); }
     }
+  });
+
+  // radio groups (accent swatches, segmented controls): the arrow keys select the neighbour
+  document.addEventListener("keydown", (event) => {
+    const radio = event.target.closest?.("[role=radiogroup] [role=radio]");
+    if (!radio || !["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"].includes(event.key)) return;
+    const list = Array.from(radio.parentElement.querySelectorAll("[role=radio]"));
+    const step = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
+    const next = list[(list.indexOf(radio) + step + list.length) % list.length];
+    event.preventDefault();
+    next.focus();
+    next.click();
   });
 
   // moving between settings panes with the arrow keys

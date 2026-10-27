@@ -5,8 +5,9 @@
 
 import { esc, html } from "../core/util.js";
 import { icon } from "../core/icons.js";
+import { scaledPx } from "../core/appearance.js";
 
-const ROW = 17;
+const ROW = 17; // designed line height; this.row is that at the current text size
 const OVERSCAN = 24;
 const MAX_WIDTH_CHARS = 1400;
 
@@ -123,10 +124,13 @@ export class LogView {
     this.pendingReveal = null;
     this.initialised = false;
     this.charW = 7.2;
+    this.row = scaledPx(ROW);
     this.build();
     this.unsubscribe = model.subscribe((kind, from) => this.onModel(kind, from));
     this.onResize = () => this.schedule(true);
     window.addEventListener("mobilelab:resized", this.onResize);
+    this.onAppearance = () => this.restyle();
+    window.addEventListener("mobilelab:appearance", this.onAppearance);
     this.ro = typeof ResizeObserver === "function" ? new ResizeObserver(() => this.schedule(true)) : null;
     this.ro?.observe(this.scroll);
     this.onModel("reload", 0);
@@ -149,16 +153,10 @@ export class LogView {
     this.rows = root.querySelector(".logv-rows");
     this.pill = root.querySelector(".jump-pill");
     this.note = root.querySelector(".logv-note");
-    const probe = document.createElement("span");
-    probe.className = "logv-probe";
-    probe.textContent = "M".repeat(100);
-    root.appendChild(probe);
-    const w = probe.getBoundingClientRect().width / 100;
-    if (w > 4) this.charW = w;
-    probe.remove();
+    this.measure();
 
     this.scroll.addEventListener("scroll", () => {
-      const atEnd = this.scroll.scrollHeight - this.scroll.scrollTop - this.scroll.clientHeight < ROW * 1.5;
+      const atEnd = this.scroll.scrollHeight - this.scroll.scrollTop - this.scroll.clientHeight < this.row * 1.5;
       if (!this.programmatic) this.follow = atEnd;
       this.pill.hidden = !(this.live && !this.follow);
       this.schedule();
@@ -177,10 +175,32 @@ export class LogView {
     });
   }
 
+  /** Width of one glyph at the current text size. */
+  measure() {
+    const probe = document.createElement("span");
+    probe.className = "logv-probe";
+    probe.textContent = "M".repeat(100);
+    this.root.appendChild(probe);
+    const w = probe.getBoundingClientRect().width / 100;
+    if (w > 4) this.charW = w;
+    probe.remove();
+  }
+
+  /** The text size changed: line height and glyph width follow it, and the view stays on the same line. */
+  restyle() {
+    const line = Math.floor(this.scroll.scrollTop / this.row);
+    this.row = scaledPx(ROW);
+    this.measure();
+    this.onModel("reload", 0);
+    if (this.follow) this.toEnd(false);
+    else this.scrollToLine(line, false);
+  }
+
   destroy() {
     this.unsubscribe?.();
     this.ro?.disconnect();
     window.removeEventListener("mobilelab:resized", this.onResize);
+    window.removeEventListener("mobilelab:appearance", this.onAppearance);
     cancelAnimationFrame(this.raf);
     this.host.innerHTML = "";
   }
@@ -219,7 +239,7 @@ export class LogView {
     const digits = Math.max(3, String(Math.max(1, lines.length)).length);
     this.root.style.setProperty("--gutter-w", `${Math.ceil(digits * this.charW + 30)}px`);
     const chars = Math.min(MAX_WIDTH_CHARS, this.model.maxLen);
-    this.sizer.style.height = `${lines.length * ROW + 10}px`;
+    this.sizer.style.height = `${lines.length * this.row + 10}px`;
     this.sizer.style.width = `calc(var(--gutter-w) + ${Math.ceil(chars * this.charW + 120)}px)`;
     this.updateNote();
 
@@ -262,7 +282,7 @@ export class LogView {
   }
 
   scrollToLine(index, center) {
-    const target = index * ROW - (center ? Math.max(0, (this.scroll.clientHeight - ROW) / 2) : 0);
+    const target = index * this.row - (center ? Math.max(0, (this.scroll.clientHeight - this.row) / 2) : 0);
     this.programmatic = true;
     this.scroll.scrollTop = Math.max(0, target);
     requestAnimationFrame(() => { this.programmatic = false; });
@@ -279,8 +299,8 @@ export class LogView {
     const lines = this.model.lines;
     const top = this.scroll.scrollTop;
     const height = this.scroll.clientHeight || 400;
-    const first = Math.max(0, Math.floor(top / ROW) - OVERSCAN);
-    const last = Math.min(lines.length, Math.ceil((top + height) / ROW) + OVERSCAN);
+    const first = Math.max(0, Math.floor(top / this.row) - OVERSCAN);
+    const last = Math.min(lines.length, Math.ceil((top + height) / this.row) + OVERSCAN);
     const key = `${first}:${last}:${this.model.version}:${this.selected}:${this.live}:${(breakpoints.get(this.jobId) || new Set()).size}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
@@ -308,7 +328,7 @@ export class LogView {
       if (pill) cls.push("has-pill");
       out += `<div class="${cls.join(" ")}" data-n="${n}"><span class="lg"><span class="lg-mark">${mark}</span><span class="lg-n">${n}</span></span><span class="lc">${highlightLine(line)}</span>${pill}</div>`;
     }
-    this.rows.style.transform = `translateY(${first * ROW}px)`;
+    this.rows.style.transform = `translateY(${first * this.row}px)`;
     this.rows.innerHTML = out;
     this.fitPills();
     this.pill.hidden = !(this.live && !this.follow);

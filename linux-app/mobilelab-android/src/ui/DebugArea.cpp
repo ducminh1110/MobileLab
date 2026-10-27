@@ -54,7 +54,6 @@ QSplitterHandle *LineSplitter::createHandle() { return new LineHandle(orientatio
 DebugArea::DebugArea(const AppContext &ctx, const Actions &a, QWidget *parent) : QWidget(parent), m_ctx(ctx), m_a(a) {
     setAttribute(Qt::WA_NoSystemBackground, true);
     setAccessibleName("Debug area");
-    const int bh = Metrics::debugBar;
     // --- bar ---
     auto mkBtn = [&](const QString &icon, QAction *act, const QString &tip = {}) {
         auto *b = new IconButton(icon, this);
@@ -106,7 +105,6 @@ DebugArea::DebugArea(const AppContext &ctx, const Actions &a, QWidget *parent) :
     lh->addStretch();
     m_varFilter = new FilterBar(m_footL);
     m_varFilter->setFixedWidth(190);
-    m_varFilter->setFixedHeight(26 + 2 * m_varFilter->shadowMargin() - 4);
     m_varFilter->setAccessibleName("Filter variables");
     lh->addWidget(m_varFilter);
     m_footR = new QWidget(m_footer);
@@ -121,7 +119,6 @@ DebugArea::DebugArea(const AppContext &ctx, const Actions &a, QWidget *parent) :
     rh->addStretch();
     m_consoleFilter = new FilterBar(m_footR);
     m_consoleFilter->setFixedWidth(190);
-    m_consoleFilter->setFixedHeight(26 + 2 * m_consoleFilter->shadowMargin() - 4);
     m_consoleFilter->setAccessibleName("Filter console");
     rh->addWidget(m_consoleFilter);
     m_trash = new IconButton("trash", m_footR);
@@ -193,10 +190,18 @@ DebugArea::DebugArea(const AppContext &ctx, const Actions &a, QWidget *parent) :
     }
     if (m_ctx.runtime) connect(m_ctx.runtime, &AndroidRuntime::targetsChanged, this, [this] { m_coalesce.start(); });
     if (m_ctx.scheduler) connect(m_ctx.scheduler, &ResourceScheduler::jobChanged, this, [this] { m_coalesce.start(); update(); });
-    setMinimumHeight(bh);
+    connect(&Theme::instance(), &Theme::textScaleChanged, this, [this] { applyMetrics(); });
+    applyMetrics();
     rebuildConsole();
     refreshVariables();
     setExpanded(false);
+}
+
+// Heights that hold text: the bar, the footers and their filter fields.
+void DebugArea::applyMetrics() {
+    setMinimumHeight(Metrics::debugBar());
+    for (auto *f : {m_varFilter, m_consoleFilter}) f->setFixedHeight(Theme::scaled(26) + 2 * f->shadowMargin() - 4);
+    relayout();
 }
 
 void DebugArea::setExpanded(bool expanded) {
@@ -232,7 +237,7 @@ QString DebugArea::breadcrumb() const {
 }
 
 void DebugArea::relayout() {
-    const int H = height(), W = width(), bh = Metrics::debugBar;
+    const int H = height(), W = width(), bh = Metrics::debugBar();
     const bool open = m_expanded && H > bh + 12;
     m_split->setVisible(open);
     m_footer->setVisible(open);
@@ -245,7 +250,7 @@ void DebugArea::relayout() {
     }
     m_inspectorBtn->move(W - 6 - m_inspectorBtn->width(), (bh - m_inspectorBtn->height()) / 2);
     if (open) {
-        const int fh = Metrics::footerHeight;
+        const int fh = Metrics::footerHeight();
         m_split->setGeometry(0, bh, W, H - bh - fh);
         m_footer->setGeometry(0, H - fh, W, fh);
         syncFooter();
@@ -273,7 +278,7 @@ void DebugArea::paintEvent(QPaintEvent *) {
     const Tokens &t = tk();
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    const int W = width(), H = height(), bh = Metrics::debugBar;
+    const int W = width(), H = height(), bh = Metrics::debugBar();
     const bool open = m_split->isVisible();
     // top hairline: separates the editor from the debug area / strip
     p.setPen(t.divider);
@@ -299,7 +304,7 @@ void DebugArea::paintEvent(QPaintEvent *) {
         p.drawPath(path);
         // footer part in the darker tint
         QPainterPath foot;
-        const QRectF fr(cx, H - Metrics::footerHeight, W - cx, Metrics::footerHeight);
+        const QRectF fr(cx, H - Metrics::footerHeight(), W - cx, Metrics::footerHeight());
         foot.moveTo(fr.left(), fr.top());
         foot.lineTo(fr.right(), fr.top());
         foot.lineTo(fr.right(), fr.bottom() - r);

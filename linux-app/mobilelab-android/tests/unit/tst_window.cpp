@@ -2,16 +2,24 @@
 // Open Quickly, history, and a matrix run against the fake SDK fixture.
 #include <QtTest>
 #include <QApplication>
+#include <QCheckBox>
+#include <QLabel>
+#include <QLineEdit>
 #include <QProcess>
+#include <QRadioButton>
 #include <QSettings>
+#include <QVBoxLayout>
 #include "AndroidRuntime.h"
+#include "EditorParts.h"
 #include "IconButton.h"
 #include "MainWindow.h"
 #include "MatrixExecutor.h"
 #include "OpenQuickly.h"
 #include "Theme.h"
 #include "UiUtil.h"
+#include "Widgets.h"
 #include "XcodeStyle.h"
+#include "glass/Glass.h"
 
 static QTemporaryDir *g_tmp = nullptr;
 
@@ -231,6 +239,167 @@ private slots:
         press(Qt::Key_Right, Qt::ControlModifier | Qt::AltModifier);
         QCOMPARE(w->location().kind, Location::Container);
         w->navigate(Location{});
+    }
+
+    void textSizeRelayoutsTheWindowAtRunTime() {
+        Theme &th = Theme::instance();
+        th.resetAppearance();
+        th.setReducedMotion(true);
+        NavTree tree;
+        tree.rebuild([](QStandardItemModel &m) {
+            for (const char *id : {"a", "b", "c"}) {
+                auto *it = new QStandardItem(id);
+                it->setData(QString(id), NavRole::Id);
+                m.appendRow(it);
+            }
+        });
+        tree.resize(300, 200);
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+        auto *filter = w->navigator()->page(Navigator::Devices)->findChild<FilterBar *>();
+        QVERIFY(filter);
+        // the design values at the default size
+        QTRY_COMPARE(w->toolbar()->height(), 52);
+        QCOMPARE(w->toolbar()->capsule()->height(), 34 + 6);
+        QCOMPARE(w->editor()->jumpBar()->height(), 28 + 6);
+        QCOMPARE(w->editorPanes()->currentSize(w->debugPane()), 28);
+        QCOMPARE(filter->parentWidget()->height(), 34 + 8);
+        QCOMPARE(tree.visualRect(tree.findId("a")).height(), 22);
+        for (auto size : {Theme::TextSize::Larger, Theme::TextSize::Large, Theme::TextSize::Small, Theme::TextSize::Default}) {
+            th.setTextSize(size);
+            const QString what = Theme::textSizeName(size);
+            QTRY_COMPARE_WITH_TIMEOUT(w->toolbar()->height(), Metrics::toolbarHeight(), 2000);
+            QTRY_COMPARE_WITH_TIMEOUT(w->toolbar()->capsule()->height(), Metrics::capsuleHeight() + 6, 2000);
+            QTRY_COMPARE_WITH_TIMEOUT(w->editor()->jumpBar()->height(), Metrics::jumpBarHeight() + 6, 2000);
+            QTRY_COMPARE_WITH_TIMEOUT(filter->parentWidget()->height(), Metrics::filterBar() + 8, 2000);
+            QCOMPARE(w->editorPanes()->currentSize(w->debugPane()), Metrics::debugBar());
+            QCOMPARE(tree.visualRect(tree.findId("b")).height(), Metrics::navRow());
+            QCOMPARE(tree.visualRect(tree.findId("b")).top(), Metrics::navRow());      // rows follow each other without gaps
+            const QRect cap = w->toolbar()->capsule()->geometry();
+            QVERIFY2(cap.top() >= 0 && cap.bottom() < w->toolbar()->height(), qPrintable(what + ": capsule leaves the toolbar"));
+        }
+        QCOMPARE(w->toolbar()->height(), 52);
+        QCOMPARE(w->editor()->jumpBar()->height(), 28 + 6);
+        QCOMPARE(tree.visualRect(tree.findId("a")).height(), 22);
+        // the collapsed debug strip is the pane's size while it is closed
+        th.setTextSize(Theme::TextSize::Larger);
+        QCOMPARE(w->editorPanes()->currentSize(w->debugPane()), Theme::scaled(28));
+        w->showDebugArea(true, false);
+        w->showDebugArea(false, false);
+        QCOMPARE(w->editorPanes()->currentSize(w->debugPane()), Theme::scaled(28));
+        th.resetAppearance();
+        th.setReducedMotion(true);
+        QCOMPARE(w->editorPanes()->currentSize(w->debugPane()), 28);
+    }
+
+    void unfocusedSelectionStaysNeutralInsideTheIndentation() {
+        QWidget host;
+        auto *lay = new QVBoxLayout(&host);
+        auto *edit = new QLineEdit(&host);
+        NavTree tree(&host);
+        lay->addWidget(edit);
+        lay->addWidget(&tree, 1);
+        tree.rebuild([](QStandardItemModel &m) {
+            auto *parent = new QStandardItem("group");
+            parent->setData(QString("g"), NavRole::Id);
+            parent->setData(true, NavRole::Expand);
+            auto *child = new QStandardItem("child");
+            child->setData(QString("c"), NavRole::Id);
+            parent->appendRow(child);
+            m.appendRow(parent);
+        });
+        host.resize(300, 240);
+        host.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&host));
+        edit->setFocus();
+        QVERIFY(tree.selectId("c"));
+        QVERIFY(!tree.hasFocus());
+        Theme::instance().setAccent(Theme::Accent::Purple);
+        const QRect row = tree.visualRect(tree.findId("c"));
+        const QImage img = tree.grab().toImage();
+        const QColor under = img.pixelColor(20, row.center().y());
+        QVERIFY2(under != Theme::accentColor(Theme::Accent::Purple, Theme::instance().dark()), qPrintable(under.name()));
+        QCOMPARE(under, tk().selection);
+        Theme::instance().resetAppearance();
+        Theme::instance().setReducedMotion(true);
+    }
+
+    void settingsSheetAppearanceControlsFollowAndDriveTheTheme() {
+        Theme &th = Theme::instance();
+        th.resetAppearance();
+        Glass::Settings::instance().setLevel(Glass::Level::Full);
+        w->openSettings(SettingsSheet::General);
+        auto *sheet = qobject_cast<SettingsSheet *>(w->lastSheet());
+        QVERIFY(sheet);
+        QCOMPARE(sheet->size(), QSize(600 + 40, 560 + 40));           // the sheet is as it was at the default text size
+        auto *swatches = sheet->findChild<SwatchRow *>();
+        QVERIFY(swatches);
+        SegmentedControl *textSize = nullptr;
+        for (auto *c : sheet->findChildren<SegmentedControl *>())
+            if (c->accessibleName() == "Text size") textSize = c;
+        QVERIFY(textSize);
+        QCheckBox *motion = nullptr;
+        for (auto *c : sheet->findChildren<QCheckBox *>())
+            if (c->text() == "Reduce motion") motion = c;
+        QVERIFY(motion);
+        PillButton *reset = nullptr;
+        for (auto *c : sheet->findChildren<PillButton *>())
+            if (c->text() == "Reset Appearance") reset = c;
+        QVERIFY(reset);
+        QCOMPARE(swatches->current(), 0);
+        QCOMPARE(textSize->current(), int(Theme::TextSize::Default));
+        QVERIFY(!motion->isChecked());
+        // the controls change the theme at once
+        QTest::mouseClick(swatches->swatch(1), Qt::LeftButton, {}, swatches->swatch(1)->rect().center());
+        QCOMPARE(th.accent(), Theme::Accent::Purple);
+        QCOMPARE(tk().accent, Theme::accentColor(Theme::Accent::Purple, th.dark()));
+        textSize->setFocus();
+        QTest::keyClick(textSize, Qt::Key_Right);
+        QCOMPARE(th.textSize(), Theme::TextSize::Large);
+        QTest::keyClick(textSize, Qt::Key_Right);
+        QCOMPARE(th.textSize(), Theme::TextSize::Larger);
+        QVERIFY(sheet->width() > 600 + 40);                           // the sheet grows with the text
+        motion->click();
+        QVERIFY(th.reducedMotion());
+        th.setMode(Theme::Mode::Dark);
+        Glass::Settings::instance().setLevel(Glass::Level::Off);
+        w->saveUiState();
+        {
+            QSettings s;
+            QCOMPARE(s.value("appearance/accent").toString(), QString("purple"));
+            QCOMPARE(s.value("appearance/textSize").toString(), QString("larger"));
+            QCOMPARE(s.value("appearance/mode").toString(), QString("dark"));
+            QCOMPARE(s.value("appearance/reducedMotion").toBool(), true);
+        }
+        // Reset Appearance restores all of it, and the controls show it
+        reset->click();
+        QCOMPARE(th.mode(), Theme::Mode::System);
+        QCOMPARE(th.accent(), Theme::Accent::Blue);
+        QCOMPARE(th.textSize(), Theme::TextSize::Default);
+        QVERIFY(!th.reducedMotion());
+        QCOMPARE(Glass::level(), Glass::Level::Full);
+        QCOMPARE(swatches->current(), 0);
+        QCOMPARE(textSize->current(), int(Theme::TextSize::Default));
+        QVERIFY(!motion->isChecked());
+        for (auto *r : sheet->findChildren<QRadioButton *>())
+            if (r->accessibleName() == "Appearance System" || r->accessibleName() == "Liquid Glass Full (refracting Liquid Glass)") QVERIFY(r->isChecked());
+        QCOMPARE(sheet->size(), QSize(600 + 40, 560 + 40));
+        QCOMPARE(w->toolbar()->height(), 52);
+        // layout sizes are not part of Appearance
+        w->panes()->setPaneSize(w->navigatorPane(), 321);
+        reset->click();
+        QCOMPARE(w->panes()->paneSize(w->navigatorPane()), 321);
+        delete sheet;
+        th.setReducedMotion(true);
+    }
+
+    void welcomeShowsTheProjectVersion() {
+        QCOMPARE(QString(MOBILELAB_VERSION), QString("4.1.0"));
+        w->navigate(Location{});
+        bool found = false;
+        for (auto *l : w->editor()->welcome()->findChildren<QLabel *>())
+            if (l->text() == "Android device lab, version 4.1.0") found = true;
+        QVERIFY(found);
     }
 
     void fuzzyMatching() {

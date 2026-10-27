@@ -78,8 +78,8 @@ protected:
         Icons::paint(&p, "xmark.diamond.fill", QRectF(12, y + 1, 14, 14), t.fail);
         p.setFont(Theme::instance().ui(13, QFont::DemiBold));
         p.setPen(t.text);
-        p.drawText(QRect(34, y, width() - 44, 18), Qt::AlignVCenter | Qt::AlignLeft, m_title);
-        y += 22;
+        p.drawText(QRect(34, y, width() - 44, Theme::scaled(18)), Qt::AlignVCenter | Qt::AlignLeft, m_title);
+        y += Theme::scaled(22);
         p.setFont(Theme::instance().mono(12));
         p.setPen(t.text);
         const QRect mr(34, y, width() - 46, 0);
@@ -98,7 +98,7 @@ private:
     int heightFor(int w) const {
         const QFontMetrics mono(Theme::instance().mono(12)), ui(Theme::instance().ui(12));
         const int tw = qMax(120, w - 46);
-        int h = 8 + 22 + mono.boundingRect(QRect(0, 0, tw, 2000), Qt::TextWordWrap, m_msg).height() + 4;
+        int h = 8 + Theme::scaled(22) + mono.boundingRect(QRect(0, 0, tw, 2000), Qt::TextWordWrap, m_msg).height() + 4;
         if (!m_remedy.isEmpty()) h += ui.boundingRect(QRect(0, 0, tw, 2000), Qt::TextWordWrap, "Remedy: " + m_remedy).height() + 4;
         return h + 6;
     }

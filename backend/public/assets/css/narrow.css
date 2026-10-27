@@ -35,7 +35,7 @@
 .app[data-layout="narrow"] .inspector { display: none; }
 .app[data-layout="narrow"][data-screen="nav"] .center { display: none; }
 .app[data-layout="narrow"][data-screen="editor"] .navigator { display: none; }
-.app[data-layout="narrow"] .center { grid-template-rows: 28px minmax(0, 1fr); }
+.app[data-layout="narrow"] .center { grid-template-rows: var(--bar-h) minmax(0, 1fr); }
 .app[data-layout="narrow"] .debug { display: none; }
 .app[data-layout="narrow"] .nav-tabs-row { display: none; }
 
@@ -50,13 +50,13 @@
 .bottom-tabs .nt + .nt::before { top: 11px; bottom: 11px; }
 
 /* comfortable touch targets */
-.app[data-layout="narrow"] .row { height: 34px; line-height: 34px; font-size: 14px; }
-.app[data-layout="narrow"] .row.gauge { height: 48px; line-height: 34px; }
+.app[data-layout="narrow"] .row { height: round(34px * var(--ts), 1px); line-height: round(34px * var(--ts), 1px); font-size: calc(14px * var(--ts)); }
+.app[data-layout="narrow"] .row.gauge { height: round(48px * var(--ts), 1px); line-height: round(34px * var(--ts), 1px); }
 .app[data-layout="narrow"] .row.gauge .row-icon { margin-top: 9px; }
 .app[data-layout="narrow"] .row .spark { bottom: 6px; }
-.app[data-layout="narrow"] .row.var { height: 28px; line-height: 28px; font-size: 12.5px; }
-.app[data-layout="narrow"] .nf-field { height: 32px; }
-.app[data-layout="narrow"] .nav-filter { height: 48px; }
+.app[data-layout="narrow"] .row.var { height: var(--bar-h); line-height: var(--bar-h); font-size: calc(12.5px * var(--ts)); }
+.app[data-layout="narrow"] .nf-field { height: round(32px * var(--ts), 1px); }
+.app[data-layout="narrow"] .nav-filter { height: round(48px * var(--ts), 1px); }
 .app[data-layout="narrow"] .jb-btn { width: 30px; height: 24px; }
 .app[data-layout="narrow"] .crumb-sep, .app[data-layout="narrow"] .crumbs .crumb:not(:last-child) span { display: none; }
 .app[data-layout="narrow"] .crumbs .crumb-sep { display: none; }
@@ -89,10 +89,6 @@
 .app[data-layout="narrow"] .palette { top: 60px; }
 .app[data-layout="narrow"] .tests-table th:nth-child(2), .app[data-layout="narrow"] .tests-table td:nth-child(2) { display: none; }
 .app[data-layout="narrow"] .canvas-meta { display: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  .app[data-layout="narrow"][data-sheet="debug"] .debug, .app[data-layout="narrow"][data-sheet="inspector"] .inspector { animation: none; }
-}
 
 /* Phone width: the capsule must never overlap itself. Segments shrink and ellipsize; the DEMO tag moves to the Welcome banner. */
 .app[data-layout="narrow"] .cap-seg { min-width: 0; flex: 0 1 auto; }

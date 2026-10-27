@@ -3,6 +3,7 @@
 // functions of `state` that end in `patch()` (see morph.js), so re-rendering is cheap when nothing changed.
 
 import { debounce, storage } from "./util.js";
+import { sanitizeAppearance } from "./appearance.js";
 
 const PREF_KEY = "mobilelab.prefs.v1";
 
@@ -16,6 +17,9 @@ const defaults = {
   navTab: "devices",
   inspTab: "attributes",
   theme: "system",
+  accent: "blue", // one of ACCENTS in appearance.js
+  textSize: "default", // "small" | "default" | "large" | "larger"
+  reduceMotion: null, // null follows the operating system; true / false is the Settings override
   glass: "on", // "on" | "reduced" (Settings: Liquid Glass)
   expanded: {},
   collapsedSections: {},
@@ -33,6 +37,7 @@ const defaults = {
 
 export const prefs = { ...defaults, ...storage.get(PREF_KEY, {}) };
 for (const key of Object.keys(defaults)) if (prefs[key] === undefined) prefs[key] = defaults[key];
+Object.assign(prefs, sanitizeAppearance(prefs));
 
 export const savePrefs = debounce(() => storage.set(PREF_KEY, prefs), 150, 1000);
 

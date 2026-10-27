@@ -15,6 +15,12 @@ void setTip(QWidget *w, const QString &title, const QKeySequence &shortcut) {
     if (w->accessibleName().isEmpty()) w->setAccessibleName(title);
 }
 
+void bindFont(QWidget *w, qreal px, QFont::Weight weight, bool mono) {
+    auto apply = [w, px, weight, mono] { w->setFont(mono ? Theme::instance().mono(px, weight) : Theme::instance().ui(px, weight)); };
+    apply();
+    QObject::connect(&Theme::instance(), &Theme::textScaleChanged, w, apply);
+}
+
 QColor withAlpha(const QColor &c, int alpha) {
     QColor r = c;
     r.setAlpha(alpha);
